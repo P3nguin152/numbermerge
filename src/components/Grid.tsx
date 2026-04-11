@@ -2,15 +2,14 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Tile as TileType } from '../types/game';
 import Tile from './Tile';
-import { TILE_COLORS } from './GameBoard';
-import { GRID_COLS } from '../utils/mergeLogic';
+import { Colors, Radius } from '../theme/colors';
 
 interface GridProps {
   grid: (TileType | null)[][];
   onColumnPress: (col: number) => void;
 }
 
-export default function Grid({ grid, onColumnPress }: GridProps) {
+function Grid({ grid, onColumnPress }: GridProps) {
   return (
     <View style={styles.container}>
       {grid.map((row, rowIndex) => (
@@ -34,7 +33,6 @@ export default function Grid({ grid, onColumnPress }: GridProps) {
                   activeOpacity={1}
                 />
               )}
-              {colIndex < GRID_COLS - 1 && <View style={styles.verticalLine} />}
             </View>
           ))}
         </View>
@@ -43,11 +41,15 @@ export default function Grid({ grid, onColumnPress }: GridProps) {
   );
 }
 
+export default React.memo(Grid);
+
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 8,
-    padding: 4,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: 3,
     flex: 1,
   },
   row: {
@@ -60,8 +62,8 @@ const styles = StyleSheet.create({
   },
   cell: {
     flex: 1,
-    margin: 2,
-    borderRadius: 4,
+    margin: 3,
+    borderRadius: Radius.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -70,17 +72,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  tileText: {
-    color: '#FFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
   emptyCell: {
     flex: 1,
-    margin: 2,
-  },
-  verticalLine: {
-    width: 1,
-    backgroundColor: '#333',
+    margin: 3,
+    borderRadius: Radius.xs,
   },
 });

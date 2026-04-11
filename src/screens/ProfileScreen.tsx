@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { loadStats } from '../utils/statsStorage';
+import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
@@ -35,14 +36,16 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
+          <View style={{ width: 42 }} />
         </View>
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
+          <View style={styles.profileGlow} />
           <View style={styles.profileAvatar}>
             <Text style={styles.profileAvatarEmoji}>🎮</Text>
           </View>
@@ -53,7 +56,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Stats Grid */}
-        <Text style={styles.sectionLabel}>Statistics</Text>
+        <Text style={styles.sectionLabel}>STATISTICS</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>👑</Text>
@@ -78,7 +81,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Achievements */}
-        <Text style={styles.sectionLabel}>Achievements</Text>
+        <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
         <View style={styles.achievementsList}>
           {achievements.map((achievement) => (
             <View 
@@ -110,167 +113,187 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#171923',
+    backgroundColor: Colors.bg,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 64,
+    paddingHorizontal: Spacing.xxl,
+    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xxxl,
   },
-  backButton: {
-    marginRight: 16,
+  backBtn: {
+    width: 42,
+    height: 42,
+    backgroundColor: Colors.card,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backButtonText: {
-    color: '#E8624A',
-    fontSize: 18,
+  backBtnText: {
+    color: Colors.textPrimary,
+    fontSize: 22,
     fontWeight: '600',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: '900',
-    flex: 1,
-    textAlign: 'center',
-    paddingRight: 64,
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   profileCard: {
-    backgroundColor: '#3A6EEA',
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 24,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.xl,
+    padding: Spacing.xxl,
+    marginBottom: Spacing.xxl,
     alignItems: 'center',
-    shadowColor: '#3A6EEA',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
+    overflow: 'hidden',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
     elevation: 10,
   },
+  profileGlow: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
   profileAvatar: {
-    width: 96,
-    height: 96,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 48,
+    width: 88,
+    height: 88,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   profileAvatarEmoji: {
-    fontSize: 48,
+    fontSize: 42,
   },
   profileName: {
     color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: Spacing.sm,
   },
   levelBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: Radius.full,
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   levelBadgeText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   sectionLabel: {
-    color: '#718096',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: Spacing.lg,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
+    gap: Spacing.md,
+    marginBottom: Spacing.xxl,
   },
   statCard: {
-    backgroundColor: '#2D3748',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.lg,
     width: '47%',
     alignItems: 'center',
   },
   statIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+    fontSize: 24,
+    marginBottom: 6,
   },
   statValue: {
-    color: '#fff',
-    fontSize: 24,
+    color: Colors.textPrimary,
+    fontSize: 22,
     fontWeight: '900',
   },
   statLabel: {
-    color: '#718096',
-    fontSize: 12,
-    marginTop: 8,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 6,
   },
   achievementsList: {
-    gap: 12,
-    marginBottom: 32,
+    gap: Spacing.md,
+    marginBottom: Spacing.xxxl,
   },
   achievementCard: {
-    backgroundColor: '#2D3748',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
   achievementCardLocked: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   achievementIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   achievementIconUnlocked: {
-    backgroundColor: 'rgba(232, 98, 74, 0.2)',
+    backgroundColor: Colors.accentDim,
   },
   achievementIconLocked: {
-    backgroundColor: '#4A5568',
+    backgroundColor: Colors.glass,
   },
   achievementIconText: {
-    fontSize: 28,
+    fontSize: 24,
   },
   achievementContent: {
     flex: 1,
   },
   achievementTitle: {
-    color: '#fff',
+    color: Colors.textPrimary,
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 15,
   },
   achievementTitleLocked: {
-    color: '#718096',
+    color: Colors.textMuted,
   },
   achievementDesc: {
-    color: '#718096',
+    color: Colors.textMuted,
     fontSize: 12,
-    marginTop: 6,
+    marginTop: 4,
   },
   achievementCheck: {
-    width: 32,
-    height: 32,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    backgroundColor: Colors.successDim,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
   achievementCheckText: {
-    color: '#22C55E',
-    fontSize: 18,
+    color: Colors.success,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

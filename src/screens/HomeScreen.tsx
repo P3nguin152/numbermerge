@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { loadStats } from '../utils/statsStorage';
+import UsernameModal from '../components/UsernameModal';
+import { useUser } from '../contexts/UserContext';
+import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const { username, isLoading: userLoading } = useUser();
   const [stats, setStats] = useState({
     highScore: 0,
     gamesPlayed: 0,
   });
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   useEffect(() => {
     loadStats().then(loadedStats => {
@@ -19,38 +24,52 @@ export default function HomeScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!userLoading && !username) {
+      setShowUsernameModal(true);
+    }
+  }, [username, userLoading]);
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>Welcome back!</Text>
-            <Text style={styles.subHeaderText}>Ready to challenge your mind?</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.welcomeText}>
+              {username ? `Hey, ${username}` : 'Welcome back'}
+            </Text>
+            <Text style={styles.subHeaderText}>Ready to crush some numbers?</Text>
           </View>
           <TouchableOpacity 
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile' as never)}
+            activeOpacity={0.7}
           >
-            <Text style={styles.profileIcon}>👤</Text>
+            <View style={styles.profileRing}>
+              <Text style={styles.profileIcon}>👤</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
         {/* Logo Section */}
         <View style={styles.logoSection}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoEmoji}>🔢</Text>
+          <View style={styles.logoOuter}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoText}>N</Text>
+            </View>
           </View>
           <Text style={styles.appTitle}>Number Merge</Text>
-          <Text style={styles.appSubtitle}>Merge tiles • Build combos • Beat scores</Text>
+          <Text style={styles.appSubtitle}>Merge · Combo · Dominate</Text>
         </View>
 
         {/* Play Button */}
         <TouchableOpacity 
           style={styles.playButton}
           onPress={() => navigation.navigate('Game' as never)}
+          activeOpacity={0.85}
         >
-          <View style={styles.playButtonContent}>
+          <View style={styles.playButtonInner}>
             <Text style={styles.playIcon}>▶</Text>
             <Text style={styles.playButtonText}>PLAY NOW</Text>
           </View>
@@ -58,14 +77,16 @@ export default function HomeScreen() {
 
         {/* Stats Preview */}
         <View style={styles.statsCard}>
-          <Text style={styles.statsLabel}>Your Stats</Text>
+          <Text style={styles.statsHeader}>YOUR STATS</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
+              <Text style={styles.statEmoji}>👑</Text>
               <Text style={styles.statValueAccent}>{stats.highScore.toLocaleString()}</Text>
               <Text style={styles.statLabel}>High Score</Text>
             </View>
-            <View style={styles.divider} />
+            <View style={styles.statDivider} />
             <View style={styles.statItem}>
+              <Text style={styles.statEmoji}>🎮</Text>
               <Text style={styles.statValuePrimary}>{stats.gamesPlayed}</Text>
               <Text style={styles.statLabel}>Games</Text>
             </View>
@@ -77,46 +98,71 @@ export default function HomeScreen() {
           <TouchableOpacity 
             style={styles.menuItem}
             onPress={() => navigation.navigate('HowToPlay' as never)}
+            activeOpacity={0.7}
           >
-            <View style={styles.menuIconContainerAccent}>
+            <View style={[styles.menuIconBox, { backgroundColor: Colors.primaryDim }]}>
               <Text style={styles.menuIcon}>📖</Text>
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>How to Play</Text>
               <Text style={styles.menuSubtitle}>Learn the basics</Text>
             </View>
-            <Text style={styles.menuArrow}>→</Text>
+            <Text style={styles.menuChevron}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.menuItem}
             onPress={() => navigation.navigate('Settings' as never)}
+            activeOpacity={0.7}
           >
-            <View style={styles.menuIconContainerPrimary}>
+            <View style={[styles.menuIconBox, { backgroundColor: Colors.accentDim }]}>
               <Text style={styles.menuIcon}>⚙️</Text>
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Settings</Text>
               <Text style={styles.menuSubtitle}>Customize your experience</Text>
             </View>
-            <Text style={styles.menuArrow}>→</Text>
+            <Text style={styles.menuChevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('Leaderboard' as never)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: Colors.goldDim }]}>
+              <Text style={styles.menuIcon}>🏆</Text>
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Leaderboard</Text>
+              <Text style={styles.menuSubtitle}>View global rankings</Text>
+            </View>
+            <Text style={styles.menuChevron}>›</Text>
           </TouchableOpacity>
         </View>
 
         {/* Daily Challenge Banner */}
-        <TouchableOpacity style={styles.dailyChallengeBanner}>
-          <View style={styles.dailyIconContainer}>
+        <TouchableOpacity style={styles.dailyBanner} activeOpacity={0.85}>
+          <View style={styles.dailyGlow} />
+          <View style={styles.dailyIconBox}>
             <Text style={styles.dailyIcon}>📅</Text>
           </View>
           <View style={styles.dailyContent}>
             <Text style={styles.dailyTitle}>Daily Challenge</Text>
-            <Text style={styles.dailySubtitle}>New puzzle available • 2h left</Text>
+            <Text style={styles.dailySubtitle}>New puzzle available</Text>
           </View>
-          <View style={styles.dailyArrowContainer}>
+          <View style={styles.dailyArrowBox}>
             <Text style={styles.dailyArrow}>▶</Text>
           </View>
         </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
+
+      <UsernameModal
+        visible={showUsernameModal}
+        onClose={() => setShowUsernameModal(false)}
+      />
     </View>
   );
 }
@@ -124,242 +170,280 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#171923',
+    backgroundColor: Colors.bg,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 64,
+    paddingHorizontal: Spacing.xxl,
+    paddingTop: 60,
   },
+
+  // ── Header ──
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: Spacing.xxxl,
+  },
+  headerLeft: {
+    flex: 1,
   },
   welcomeText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+    color: Colors.textPrimary,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subHeaderText: {
-    color: '#718096',
+    color: Colors.textMuted,
     fontSize: 14,
-    marginTop: 8,
+    marginTop: 6,
   },
   profileButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#2D3748',
-    borderRadius: 24,
+    marginLeft: Spacing.md,
+  },
+  profileRing: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.surface,
   },
   profileIcon: {
-    fontSize: 24,
+    fontSize: 22,
   },
+
+  // ── Logo ──
   logoSection: {
     alignItems: 'center',
-    marginTop: 48,
-    marginBottom: 48,
+    marginTop: 24,
+    marginBottom: 40,
   },
-  logoContainer: {
-    width: 128,
-    height: 128,
-    backgroundColor: '#E8624A',
-    borderRadius: 24,
+  logoOuter: {
+    width: 120,
+    height: 120,
+    borderRadius: Radius.xl,
+    backgroundColor: Colors.primaryDim,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#E8624A',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 10,
+    marginBottom: Spacing.xxl,
   },
-  logoEmoji: {
-    fontSize: 60,
+  logoContainer: {
+    width: 96,
+    height: 96,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  logoText: {
+    color: '#fff',
+    fontSize: 48,
+    fontWeight: '900',
   },
   appTitle: {
-    color: '#fff',
-    fontSize: 36,
+    color: Colors.textPrimary,
+    fontSize: 34,
     fontWeight: '900',
     letterSpacing: -1,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   appSubtitle: {
-    color: '#718096',
-    fontSize: 16,
+    color: Colors.textMuted,
+    fontSize: 15,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
+
+  // ── Play Button ──
   playButton: {
-    backgroundColor: '#E8624A',
-    borderRadius: 16,
-    paddingVertical: 20,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.md,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 32,
-    shadowColor: '#E8624A',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
+    marginBottom: Spacing.xxl,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
     elevation: 10,
   },
-  playButtonContent: {
+  playButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
   playIcon: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 22,
   },
   playButtonText: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
+
+  // ── Stats ──
   statsCard: {
-    backgroundColor: '#2D3748',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.xl,
+    marginBottom: Spacing.xxl,
   },
-  statsLabel: {
-    color: '#718096',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
+  statsHeader: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: Spacing.lg,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
     alignItems: 'center',
   },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statEmoji: {
+    fontSize: 22,
+    marginBottom: 6,
+  },
   statValueAccent: {
-    color: '#3A6EEA',
-    fontSize: 24,
+    color: Colors.primary,
+    fontSize: 26,
     fontWeight: '900',
   },
   statValuePrimary: {
-    color: '#E8624A',
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  statValueGreen: {
-    color: '#32CD32',
-    fontSize: 24,
+    color: Colors.accent,
+    fontSize: 26,
     fontWeight: '900',
   },
   statLabel: {
-    color: '#718096',
+    color: Colors.textMuted,
     fontSize: 12,
     marginTop: 4,
   },
-  divider: {
+  statDivider: {
     width: 1,
-    backgroundColor: '#4A5568',
+    height: 48,
+    backgroundColor: Colors.divider,
   },
+
+  // ── Menu ──
   menuOptions: {
-    gap: 12,
-    marginBottom: 24,
+    gap: Spacing.md,
+    marginBottom: Spacing.xxl,
   },
   menuItem: {
-    backgroundColor: '#2D3748',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
-  menuIconContainerAccent: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(58, 110, 234, 0.2)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuIconContainerPrimary: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(232, 98, 74, 0.2)',
-    borderRadius: 12,
+  menuIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   menuIcon: {
-    fontSize: 24,
+    fontSize: 22,
   },
   menuContent: {
     flex: 1,
   },
   menuTitle: {
-    color: '#fff',
+    color: Colors.textPrimary,
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 15,
   },
   menuSubtitle: {
-    color: '#718096',
+    color: Colors.textMuted,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 3,
   },
-  menuArrow: {
-    color: '#718096',
-    fontSize: 20,
+  menuChevron: {
+    color: Colors.textMuted,
+    fontSize: 24,
+    fontWeight: '300',
   },
-  dailyChallengeBanner: {
-    backgroundColor: '#3A6EEA',
-    borderRadius: 16,
-    padding: 20,
+
+  // ── Daily Banner ──
+  dailyBanner: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 32,
-    shadowColor: '#3A6EEA',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
+    gap: 14,
+    overflow: 'hidden',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
     elevation: 10,
   },
-  dailyIconContainer: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 12,
+  dailyGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  dailyIconBox: {
+    width: 50,
+    height: 50,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dailyIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   dailyContent: {
     flex: 1,
   },
   dailyTitle: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
+    fontWeight: '700',
+    fontSize: 17,
   },
   dailySubtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    marginTop: 4,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    marginTop: 3,
   },
-  dailyArrowContainer: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
+  dailyArrowBox: {
+    width: 36,
+    height: 36,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dailyArrow: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 16,
   },
 });

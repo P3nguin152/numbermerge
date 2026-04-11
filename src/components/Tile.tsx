@@ -1,26 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated } from 'react-native';
 import { Tile as TileType } from '../types/game';
+import { TileColors, Radius } from '../theme/colors';
 
 interface TileProps {
   tile: TileType;
 }
 
-const TILE_COLORS: Record<number, { bg: string; text: string }> = {
-  2: { bg: '#FF69B4', text: '#fff' },
-  4: { bg: '#32CD32', text: '#fff' },
-  8: { bg: '#5BBCD8', text: '#fff' },
-  16: { bg: '#4169E1', text: '#fff' },
-  32: { bg: '#E8624A', text: '#fff' },
-  64: { bg: '#9B59B6', text: '#fff' },
-  128: { bg: '#95A5A6', text: '#fff' },
-  256: { bg: '#E74C3C', text: '#fff' },
-  512: { bg: '#F39C12', text: '#fff' },
-  1024: { bg: '#1ABC9C', text: '#fff' },
-  2048: { bg: '#E91E63', text: '#fff' },
-};
+const TILE_COLORS = TileColors;
 
-export default function Tile({ tile }: TileProps) {
+function Tile({ tile }: TileProps) {
   const colors = TILE_COLORS[tile.value] || { bg: '#3c3a32', text: '#f9f6f2' };
   
   const scaleValue = React.useRef(new Animated.Value(tile.isFalling ? 0.3 : 1)).current;
@@ -106,17 +95,27 @@ export default function Tile({ tile }: TileProps) {
   );
 }
 
+export default React.memo(Tile);
+
 const styles = StyleSheet.create({
   tile: {
     width: '100%',
     height: '100%',
-    borderRadius: 6,
+    borderRadius: Radius.xs,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   tileText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });

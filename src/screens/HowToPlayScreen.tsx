@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function HowToPlayScreen() {
   const navigation = useNavigation();
@@ -10,17 +11,18 @@ export default function HowToPlayScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>How to Play</Text>
+          <View style={{ width: 42 }} />
         </View>
 
         {/* Objective */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardIconPrimary}>
-              <Text style={styles.cardIconText}>🎯</Text>
+            <View style={[styles.iconBox, { backgroundColor: Colors.accentDim }]}>
+              <Text style={styles.iconText}>🎯</Text>
             </View>
             <Text style={styles.cardTitle}>Objective</Text>
           </View>
@@ -32,8 +34,8 @@ export default function HowToPlayScreen() {
         {/* How to Drop */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardIconAccent}>
-              <Text style={styles.cardIconText}>👇</Text>
+            <View style={[styles.iconBox, { backgroundColor: Colors.primaryDim }]}>
+              <Text style={styles.iconText}>👇</Text>
             </View>
             <Text style={styles.cardTitle}>How to Drop Tiles</Text>
           </View>
@@ -45,27 +47,25 @@ export default function HowToPlayScreen() {
         {/* Merging */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardIconGreen}>
-              <Text style={styles.cardIconText}>🔗</Text>
+            <View style={[styles.iconBox, { backgroundColor: Colors.successDim }]}>
+              <Text style={styles.iconText}>🔗</Text>
             </View>
             <Text style={styles.cardTitle}>Merging Tiles</Text>
           </View>
           <Text style={styles.cardText}>
             When two tiles with the same number touch, they merge into one tile with double the value.
           </Text>
-          <View style={styles.stepList}>
-            <View style={styles.stepItem}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>2</Text>
-              </View>
-              <Text style={styles.stepText}>+</Text>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>2</Text>
-              </View>
-              <Text style={styles.stepText}>=</Text>
-              <View style={styles.stepNumberGreen}>
-                <Text style={styles.stepNumberText}>4</Text>
-              </View>
+          <View style={styles.mergeDemo}>
+            <View style={[styles.demoTile, { backgroundColor: Colors.accent }]}>
+              <Text style={styles.demoTileText}>2</Text>
+            </View>
+            <Text style={styles.demoOp}>+</Text>
+            <View style={[styles.demoTile, { backgroundColor: Colors.accent }]}>
+              <Text style={styles.demoTileText}>2</Text>
+            </View>
+            <Text style={styles.demoOp}>=</Text>
+            <View style={[styles.demoTile, { backgroundColor: Colors.success }]}>
+              <Text style={styles.demoTileText}>4</Text>
             </View>
           </View>
         </View>
@@ -73,8 +73,8 @@ export default function HowToPlayScreen() {
         {/* Game Over */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardIconRed}>
-              <Text style={styles.cardIconText}>💀</Text>
+            <View style={[styles.iconBox, { backgroundColor: Colors.dangerDim }]}>
+              <Text style={styles.iconText}>💀</Text>
             </View>
             <Text style={styles.cardTitle}>Game Over</Text>
           </View>
@@ -86,8 +86,8 @@ export default function HowToPlayScreen() {
         {/* Power-ups */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardIconYellow}>
-              <Text style={styles.cardIconText}>⚡</Text>
+            <View style={[styles.iconBox, { backgroundColor: Colors.warningDim }]}>
+              <Text style={styles.iconText}>⚡</Text>
             </View>
             <Text style={styles.cardTitle}>Power-ups</Text>
           </View>
@@ -112,31 +112,34 @@ export default function HowToPlayScreen() {
 
         {/* Tips */}
         <View style={styles.tipsCard}>
+          <View style={styles.tipsGlow} />
           <View style={styles.cardHeader}>
-            <View style={styles.cardIconWhite}>
-              <Text style={styles.cardIconText}>💡</Text>
+            <View style={[styles.iconBox, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+              <Text style={styles.iconText}>💡</Text>
             </View>
             <Text style={styles.cardTitle}>Pro Tips</Text>
           </View>
           <View style={styles.tipsList}>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>•</Text>
-              <Text style={styles.tipText}>Plan ahead - Look at your next tile before dropping</Text>
+              <View style={styles.tipDot} />
+              <Text style={styles.tipText}>Plan ahead — look at your next tile before dropping</Text>
             </View>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>•</Text>
-              <Text style={styles.tipText}>Build chains - Set up multiple merges in one column</Text>
+              <View style={styles.tipDot} />
+              <Text style={styles.tipText}>Build chains — set up multiple merges in one column</Text>
             </View>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>•</Text>
-              <Text style={styles.tipText}>Keep space - Don't fill up all columns evenly</Text>
+              <View style={styles.tipDot} />
+              <Text style={styles.tipText}>Keep space — don't fill up all columns evenly</Text>
             </View>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>•</Text>
-              <Text style={styles.tipText}>Save power-ups - Use them when you're stuck</Text>
+              <View style={styles.tipDot} />
+              <Text style={styles.tipText}>Save power-ups — use them when you're truly stuck</Text>
             </View>
           </View>
         </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -145,182 +148,166 @@ export default function HowToPlayScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#171923',
+    backgroundColor: Colors.bg,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 64,
+    paddingHorizontal: Spacing.xxl,
+    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xxxl,
   },
-  backButton: {
-    marginRight: 16,
+  backBtn: {
+    width: 42,
+    height: 42,
+    backgroundColor: Colors.card,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backButtonText: {
-    color: '#E8624A',
-    fontSize: 18,
+  backBtnText: {
+    color: Colors.textPrimary,
+    fontSize: 22,
     fontWeight: '600',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: '900',
-    flex: 1,
-    textAlign: 'center',
-    paddingRight: 64,
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
+
+  // ── Cards ──
   card: {
-    backgroundColor: '#2D3748',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 16,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.xl,
+    marginBottom: Spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  cardIconPrimary: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(232, 98, 74, 0.2)',
-    borderRadius: 12,
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardIconAccent: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(58, 110, 234, 0.2)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardIconGreen: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardIconRed: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardIconYellow: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(234, 179, 8, 0.2)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardIconWhite: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardIconText: {
-    fontSize: 24,
+  iconText: {
+    fontSize: 22,
   },
   cardTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    lineHeight: 28,
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
   },
   cardText: {
-    color: '#718096',
-    fontSize: 16,
-    lineHeight: 24,
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
   },
-  stepList: {
-    gap: 12,
-  },
-  stepItem: {
+
+  // ── Merge Demo ──
+  mergeDemo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
   },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    backgroundColor: '#E8624A',
-    borderRadius: 8,
+  demoTile: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepNumberGreen: {
-    backgroundColor: '#22C55E',
-  },
-  stepNumberText: {
+  demoTileText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '900',
   },
-  stepText: {
-    color: '#fff',
+  demoOp: {
+    color: Colors.textPrimary,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
+
+  // ── Power-ups ──
   powerUpList: {
-    gap: 12,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
   powerUpItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#171923',
-    borderRadius: 12,
-    padding: 16,
+    gap: Spacing.md,
+    backgroundColor: Colors.glass,
+    borderRadius: Radius.sm,
+    padding: Spacing.md,
   },
   powerUpIcon: {
-    fontSize: 24,
+    fontSize: 20,
   },
   powerUpText: {
-    color: '#fff',
+    color: Colors.textPrimary,
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 14,
   },
+
+  // ── Tips Card ──
   tipsCard: {
-    backgroundColor: '#E8624A',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 32,
-    shadowColor: '#E8624A',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 10,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    marginBottom: Spacing.xxxl,
+    overflow: 'hidden',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  tipsGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   tipsList: {
-    gap: 12,
+    gap: Spacing.md,
   },
   tipItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: Spacing.md,
   },
-  tipBullet: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 18,
+  tipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    marginTop: 7,
   },
   tipText: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 22,
+    flex: 1,
   },
 });

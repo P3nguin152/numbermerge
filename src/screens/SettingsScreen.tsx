@@ -1,117 +1,113 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { loadSettings, updateSetting, GameSettings } from '../utils/settingsStorage';
+import { soundManager } from '../utils/soundManager';
+import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [musicEnabled, setMusicEnabled] = useState(true);
-  const [hapticEnabled, setHapticEnabled] = useState(true);
-  const [difficulty, setDifficulty] = useState('Normal');
+  const [settings, setSettings] = useState<GameSettings>({
+    soundEnabled: true,
+    musicEnabled: true,
+    vibrationEnabled: true,
+  });
+
+  useEffect(() => {
+    loadSettings().then(setSettings);
+  }, []);
+
+  const handleSoundToggle = async (value: boolean) => {
+    await updateSetting('soundEnabled', value);
+    setSettings(prev => ({ ...prev, soundEnabled: value }));
+    soundManager.setSoundEnabled(value);
+  };
+
+  const handleMusicToggle = async (value: boolean) => {
+    await updateSetting('musicEnabled', value);
+    setSettings(prev => ({ ...prev, musicEnabled: value }));
+    soundManager.setMusicEnabled(value);
+  };
+
+  const handleHapticToggle = async (value: boolean) => {
+    await updateSetting('vibrationEnabled', value);
+    setSettings(prev => ({ ...prev, vibrationEnabled: value }));
+    soundManager.setVibrationEnabled(value);
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
+          <View style={{ width: 42 }} />
         </View>
 
         {/* Sound Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Sound & Audio</Text>
-          
+          <Text style={styles.sectionLabel}>SOUND & AUDIO</Text>
+
           <View style={styles.card}>
-            <View style={styles.cardItem}>
+            <View style={[styles.cardItem, styles.cardItemBorder]}>
+              <View style={[styles.iconBox, { backgroundColor: Colors.accentDim }]}>
+                <Text style={styles.iconEmoji}>🔊</Text>
+              </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Sound Effects</Text>
                 <Text style={styles.cardItemSubtitle}>Tile drops, merges, etc.</Text>
               </View>
               <Switch
-                value={soundEnabled}
-                onValueChange={setSoundEnabled}
-                trackColor={{ false: '#374151', true: '#E8624A' }}
+                value={settings.soundEnabled}
+                onValueChange={handleSoundToggle}
+                trackColor={{ false: Colors.card, true: Colors.primary }}
                 thumbColor="#FFF"
               />
             </View>
 
             <View style={[styles.cardItem, styles.cardItemBorder]}>
+              <View style={[styles.iconBox, { backgroundColor: Colors.primaryDim }]}>
+                <Text style={styles.iconEmoji}>🎵</Text>
+              </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Background Music</Text>
                 <Text style={styles.cardItemSubtitle}>Play music during game</Text>
               </View>
               <Switch
-                value={musicEnabled}
-                onValueChange={setMusicEnabled}
-                trackColor={{ false: '#374151', true: '#E8624A' }}
+                value={settings.musicEnabled}
+                onValueChange={handleMusicToggle}
+                trackColor={{ false: Colors.card, true: Colors.primary }}
                 thumbColor="#FFF"
               />
             </View>
 
             <View style={styles.cardItem}>
+              <View style={[styles.iconBox, { backgroundColor: Colors.warningDim }]}>
+                <Text style={styles.iconEmoji}>📳</Text>
+              </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Haptic Feedback</Text>
                 <Text style={styles.cardItemSubtitle}>Vibration on actions</Text>
               </View>
               <Switch
-                value={hapticEnabled}
-                onValueChange={setHapticEnabled}
-                trackColor={{ false: '#374151', true: '#E8624A' }}
+                value={settings.vibrationEnabled}
+                onValueChange={handleHapticToggle}
+                trackColor={{ false: Colors.card, true: Colors.primary }}
                 thumbColor="#FFF"
               />
             </View>
           </View>
         </View>
 
-        {/* Difficulty Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Difficulty</Text>
-          
-          <View style={styles.card}>
-            <TouchableOpacity 
-              style={[styles.cardItem, difficulty === 'Easy' ? styles.cardItemActive : null, styles.cardItemBorder]}
-              onPress={() => setDifficulty('Easy')}
-            >
-              <View style={styles.cardItemContent}>
-                <Text style={[styles.cardItemTitle, difficulty === 'Easy' ? styles.cardItemTitleActive : null]}>Easy</Text>
-                <Text style={styles.cardItemSubtitle}>4x4 Grid • Relaxed pace</Text>
-              </View>
-              {difficulty === 'Easy' && <Text style={styles.checkIcon}>✓</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.cardItem, difficulty === 'Normal' ? styles.cardItemActive : null, styles.cardItemBorder]}
-              onPress={() => setDifficulty('Normal')}
-            >
-              <View style={styles.cardItemContent}>
-                <Text style={[styles.cardItemTitle, difficulty === 'Normal' ? styles.cardItemTitleActive : null]}>Normal</Text>
-                <Text style={styles.cardItemSubtitle}>5x5 Grid • Balanced challenge</Text>
-              </View>
-              {difficulty === 'Normal' && <Text style={styles.checkIcon}>✓</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.cardItem, difficulty === 'Hard' ? styles.cardItemActive : null]}
-              onPress={() => setDifficulty('Hard')}
-            >
-              <View style={styles.cardItemContent}>
-                <Text style={[styles.cardItemTitle, difficulty === 'Hard' ? styles.cardItemTitleActive : null]}>Hard</Text>
-                <Text style={styles.cardItemSubtitle}>6x6 Grid • Expert level</Text>
-              </View>
-              {difficulty === 'Hard' && <Text style={styles.checkIcon}>✓</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Theme Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Appearance</Text>
+          <Text style={styles.sectionLabel}>APPEARANCE</Text>
           
           <View style={styles.card}>
-            <TouchableOpacity style={[styles.cardItem, styles.cardItemBorder]}>
+            <TouchableOpacity style={[styles.cardItem, styles.cardItemBorder]} activeOpacity={0.7}>
               <View style={styles.themePreview}>
                 <View style={styles.themePreviewInner} />
               </View>
@@ -119,10 +115,12 @@ export default function SettingsScreen() {
                 <Text style={styles.cardItemTitle}>Dark Mode</Text>
                 <Text style={styles.cardItemSubtitle}>Currently active</Text>
               </View>
-              <Text style={styles.checkIcon}>✓</Text>
+              <View style={styles.checkBadge}>
+                <Text style={styles.checkIcon}>✓</Text>
+              </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.cardItem, styles.cardItemDisabled]}>
+            <TouchableOpacity style={[styles.cardItem, styles.cardItemDisabled]} activeOpacity={1}>
               <View style={[styles.themePreview, styles.themePreviewLight]}>
                 <View style={[styles.themePreviewInner, styles.themePreviewInnerLight]} />
               </View>
@@ -136,19 +134,26 @@ export default function SettingsScreen() {
 
         {/* About Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>About</Text>
+          <Text style={styles.sectionLabel}>ABOUT</Text>
           
           <View style={styles.card}>
             <View style={[styles.cardItem, styles.cardItemBorder]}>
-              <Text style={styles.cardItemSubtitle}>Version</Text>
-              <Text style={styles.cardItemTitle}>1.0.0</Text>
+              <View style={styles.cardItemContent}>
+                <Text style={styles.cardItemSubtitle}>Version</Text>
+              </View>
+              <Text style={styles.versionText}>1.0.0</Text>
             </View>
-            <TouchableOpacity style={styles.cardItem}>
-              <Text style={styles.cardItemTitle}>Rate the App</Text>
-              <Text style={styles.cardItemSubtitle}>Share your feedback</Text>
+            <TouchableOpacity style={styles.cardItem} activeOpacity={0.7}>
+              <View style={styles.cardItemContent}>
+                <Text style={styles.cardItemTitle}>Rate the App</Text>
+                <Text style={styles.cardItemSubtitle}>Share your feedback</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -157,109 +162,138 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#171923',
+    backgroundColor: Colors.bg,
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 64,
+    paddingHorizontal: Spacing.xxl,
+    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xxxl,
   },
-  backButton: {
-    marginRight: 16,
+  backBtn: {
+    width: 42,
+    height: 42,
+    backgroundColor: Colors.card,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backButtonText: {
-    color: '#E8624A',
-    fontSize: 18,
+  backBtnText: {
+    color: Colors.textPrimary,
+    fontSize: 22,
     fontWeight: '600',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: '900',
-    flex: 1,
-    textAlign: 'center',
-    paddingRight: 64,
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: Spacing.xxl,
   },
   sectionLabel: {
-    color: '#718096',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: Spacing.md,
   },
   card: {
-    backgroundColor: '#2D3748',
-    borderRadius: 16,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
     overflow: 'hidden',
   },
   cardItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    gap: 14,
   },
   cardItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#4A5568',
-  },
-  cardItemActive: {
-    backgroundColor: 'rgba(232, 98, 74, 0.1)',
-    borderLeftWidth: 4,
-    borderLeftColor: '#E8624A',
+    borderBottomColor: Colors.divider,
   },
   cardItemDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
+  },
+  iconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconEmoji: {
+    fontSize: 18,
   },
   cardItemContent: {
     flex: 1,
   },
   cardItemTitle: {
-    color: '#fff',
+    color: Colors.textPrimary,
     fontWeight: '600',
-    fontSize: 16,
-  },
-  cardItemTitleActive: {
-    color: '#E8624A',
+    fontSize: 15,
   },
   cardItemSubtitle: {
-    color: '#718096',
+    color: Colors.textMuted,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 2,
+  },
+  checkBadge: {
+    width: 28,
+    height: 28,
+    backgroundColor: Colors.successDim,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkIcon: {
-    color: '#E8624A',
+    color: Colors.success,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  versionText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  chevron: {
+    color: Colors.textMuted,
     fontSize: 24,
+    fontWeight: '300',
   },
   themePreview: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#171923',
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    backgroundColor: Colors.bg,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#4A5568',
-    marginRight: 16,
+    borderColor: Colors.cardBorder,
   },
   themePreviewLight: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
+    borderColor: '#DDD',
   },
   themePreviewInner: {
-    width: 32,
-    height: 32,
-    backgroundColor: '#171923',
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xs,
   },
   themePreviewInnerLight: {
-    backgroundColor: '#e5e5e5',
+    backgroundColor: '#E0E0E0',
   },
 });

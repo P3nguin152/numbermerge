@@ -13,10 +13,23 @@
       "bundleIdentifier": "com.numbermerge.game"
     },
     "android": {
-      "package": "com.numbermerge.game"
+      "package": "com.numbermerge.game",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "webpack"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    },
+    "privacy": "https://your-privacy-policy-url.com"
   }
 }

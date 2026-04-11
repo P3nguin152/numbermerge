@@ -4,24 +4,35 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './src/screens/HomeScreen';
 import GameBoard from './src/components/GameBoard';
+import ProfileScreen from './src/screens/ProfileScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import HowToPlayScreen from './src/screens/HowToPlayScreen';
+import { UserProvider } from './src/contexts/UserContext';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <Stack.Navigator 
-          initialRouteName="Home"
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Game" component={GameBoard} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <UserProvider>
+        <NavigationContainer>
+          <StatusBar style="light" />
+          <Stack.Navigator
+            initialRouteName="Home"
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Game" component={GameBoard} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="HowToPlay" component={HowToPlayScreen} />
+            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </UserProvider>
     </SafeAreaProvider>
   );
 }
