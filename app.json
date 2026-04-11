@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Number Merge",
+    "slug": "number-merge",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.numbermerge.game"
+    },
+    "android": {
+      "package": "com.numbermerge.game"
+    },
+    "web": {
+      "bundler": "webpack"
+    }
+  }
+}
