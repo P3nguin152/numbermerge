@@ -1,3 +1,5 @@
+export type SpecialTileType = 'bomb' | 'rainbow' | 'multiplier';
+
 export interface Tile {
   id: string;
   value: number;
@@ -8,6 +10,8 @@ export interface Tile {
   fromRow?: number;
   fromCol?: number;
   isMoving?: boolean;
+  specialType?: SpecialTileType;
+  multiplierValue?: number;
 }
 
 export interface TileWithPosition extends Tile {

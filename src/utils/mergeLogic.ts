@@ -1,7 +1,7 @@
 import { Tile } from '../types/game';
 
-export const GRID_ROWS = 6;
-export const GRID_COLS = 6;
+export const GRID_ROWS = 5;
+export const GRID_COLS = 5;
 
 export interface MergeResult {
   grid: (Tile | null)[][];
@@ -13,7 +13,8 @@ function makeId(): string {
 }
 
 function makeTile(value: number, row: number, col: number, opts: Partial<Tile> = {}): Tile {
-  return { id: makeId(), value, row, col, isFalling: false, isMerged: false, ...opts };
+  const safeOpts = opts && typeof opts === 'object' ? opts : {};
+  return { id: makeId(), value, row, col, isFalling: false, isMerged: false, ...safeOpts };
 }
 
 /** Create a blank GRID_ROWS × GRID_COLS grid */
@@ -21,9 +22,12 @@ export function createEmptyGrid(): (Tile | null)[][] {
   return Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
 }
 
-/** Pick a random starting tile value (2, 4, 8, or 16) */
-export function generateNextValue(): number {
-  const pool = [2, 4, 8, 16];
+/** Pick a random starting tile value (2, 4, 8, 16, or 32) */
+export function generateNextValue(rng?: any): number {
+  const pool = [2, 4, 8, 16, 32];
+  if (rng) {
+    return rng.nextItem(pool);
+  }
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -31,7 +35,7 @@ export function canDropInColumn(grid: (Tile | null)[][], col: number): boolean {
   // A column can accept a drop if it has fewer than GRID_ROWS tiles
   let tileCount = 0;
   for (let row = 0; row < GRID_ROWS; row++) {
-    if (grid[row][col] !== null) {
+    if (grid[row]?.[col] !== null && grid[row]?.[col] !== undefined) {
       tileCount++;
     }
   }
@@ -51,7 +55,8 @@ export function isGameOver(grid: (Tile | null)[][]): boolean {
  * compact all non-null tiles to the bottom, preserve order.
  */
 function applyGravityToColumn(col: (Tile | null)[]): (Tile | null)[] {
-  const tiles = col.filter(t => t !== null) as Tile[];
+  if (!col || !Array.isArray(col)) return Array(GRID_ROWS).fill(null);
+  const tiles = col.filter(t => t !== null && typeof t === 'object') as Tile[];
   const empty: null[] = Array(GRID_ROWS - tiles.length).fill(null);
   
   // Track original positions for animation
@@ -71,8 +76,13 @@ function getColumn(grid: (Tile | null)[][], col: number): (Tile | null)[] {
 
 /** Write a column back into the grid (mutates) */
 function setColumn(grid: (Tile | null)[][], col: number, column: (Tile | null)[]): void {
+  if (!grid || !Array.isArray(grid)) return;
   for (let row = 0; row < GRID_ROWS; row++) {
-    grid[row][col] = column[row] ? { ...column[row]!, row, col } : null;
+    if (!grid[row]) {
+      grid[row] = Array(GRID_COLS).fill(null);
+    }
+    const tile = column[row];
+    grid[row][col] = tile && typeof tile === 'object' ? { ...tile, row, col } : null;
   }
 }
 
@@ -87,7 +97,6 @@ function applyGravityToGrid(grid: (Tile | null)[][]): void {
 /**
  * Scan every row for adjacent horizontal pairs with the same value.
  * Also checks for 3-in-a-row merges.
- * Merge each pair into the right cell, clear the left cell.
  * Returns { scoreGained, didMerge }
  */
 function mergeHorizontal(grid: (Tile | null)[][]): { scoreGained: number; didMerge: boolean } {
@@ -95,6 +104,10 @@ function mergeHorizontal(grid: (Tile | null)[][]): { scoreGained: number; didMer
   let didMerge = false;
 
   for (let row = GRID_ROWS - 1; row >= 0; row--) {
+    if (!grid[row] || !Array.isArray(grid[row])) continue;
+
+    // Process columns based on their relation to dropColumn
+    // Start from dropColumn and expand outward
     let col = 0;
     while (col < GRID_COLS) {
       // Check for 3-in-a-row
@@ -104,13 +117,13 @@ function mergeHorizontal(grid: (Tile | null)[][]): { scoreGained: number; didMer
         const t3 = grid[row][col + 2];
 
         if (t1 && t2 && t3 && t1.value === t2.value && t2.value === t3.value) {
-          const mergeValue = t1.value * 2;
+          const mergeValue = t1.value * 3;
           scoreGained += mergeValue;
 
-          const merged = makeTile(mergeValue, row, col + 2, { isMerged: true, fromCol: col, isMoving: true });
-          grid[row][col + 2] = merged;
-          grid[row][col] = null;
+          const merged = makeTile(mergeValue, row, col, { isMerged: true, fromCol: col + 2, isMoving: true });
+          grid[row][col] = merged;
           grid[row][col + 1] = null;
+          grid[row][col + 2] = null;
           didMerge = true;
           col += 3;
           continue;
@@ -126,15 +139,110 @@ function mergeHorizontal(grid: (Tile | null)[][]): { scoreGained: number; didMer
           const mergeValue = left.value * 2;
           scoreGained += mergeValue;
 
-          const merged = makeTile(mergeValue, row, col + 1, { isMerged: true, fromCol: col, isMoving: true });
-          grid[row][col + 1] = merged;
-          grid[row][col] = null;
+          const merged = makeTile(mergeValue, row, col, { isMerged: true, fromCol: col + 1, isMoving: true });
+          grid[row][col] = merged;
+          grid[row][col + 1] = null;
           didMerge = true;
           col += 2;
           continue;
         }
       }
       col++;
+    }
+  }
+
+  return { scoreGained, didMerge };
+}
+
+/**
+ * Scan for L-shaped (right-angled) merges where 3 tiles of same value form an L.
+ * Returns { scoreGained, didMerge }
+ */
+function mergeLShape(grid: (Tile | null)[][]): { scoreGained: number; didMerge: boolean } {
+  let scoreGained = 0;
+  let didMerge = false;
+
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      const center = grid[row]?.[col];
+      if (!center) continue;
+
+      // Check all 4 possible L-shape orientations from this center
+      // Pattern 1: center, right, down
+      if (col + 1 < GRID_COLS && row + 1 < GRID_ROWS) {
+        const right = grid[row][col + 1];
+        const down = grid[row + 1][col];
+        
+        if (right && down && 
+            center.value === right.value && 
+            center.value === down.value) {
+          const mergeValue = center.value * 3;
+          scoreGained += mergeValue;
+          const merged = makeTile(mergeValue, row, col, { isMerged: true });
+          grid[row][col] = merged;
+          grid[row][col + 1] = null;
+          grid[row + 1][col] = null;
+          didMerge = true;
+          continue;
+        }
+      }
+
+      // Pattern 2: center, right, up
+      if (col + 1 < GRID_COLS && row - 1 >= 0) {
+        const right = grid[row][col + 1];
+        const up = grid[row - 1][col];
+        
+        if (right && up && 
+            center.value === right.value && 
+            center.value === up.value) {
+          const mergeValue = center.value * 3;
+          scoreGained += mergeValue;
+          const merged = makeTile(mergeValue, row, col, { isMerged: true });
+          grid[row][col] = merged;
+          grid[row][col + 1] = null;
+          grid[row - 1][col] = null;
+          didMerge = true;
+          continue;
+        }
+      }
+
+      // Pattern 3: center, left, down
+      if (col - 1 >= 0 && row + 1 < GRID_ROWS) {
+        const left = grid[row][col - 1];
+        const down = grid[row + 1][col];
+        
+        if (left && down && 
+            center.value === left.value && 
+            center.value === down.value) {
+          const mergeValue = center.value * 3;
+          scoreGained += mergeValue;
+          const merged = makeTile(mergeValue, row, col, { isMerged: true });
+          grid[row][col] = merged;
+          grid[row][col - 1] = null;
+          grid[row + 1][col] = null;
+          didMerge = true;
+          continue;
+        }
+      }
+
+      // Pattern 4: center, left, up
+      if (col - 1 >= 0 && row - 1 >= 0) {
+        const left = grid[row][col - 1];
+        const up = grid[row - 1][col];
+        
+        if (left && up && 
+            center.value === left.value && 
+            center.value === up.value) {
+          const mergeValue = center.value * 3;
+          scoreGained += mergeValue;
+          const merged = makeTile(mergeValue, row, col, { isMerged: true });
+          grid[row][col] = merged;
+          grid[row][col - 1] = null;
+          grid[row - 1][col] = null;
+          didMerge = true;
+          continue;
+        }
+      }
     }
   }
 
@@ -151,15 +259,17 @@ function mergeVertical(grid: (Tile | null)[][]): { scoreGained: number; didMerge
 
   for (let col = 0; col < GRID_COLS; col++) {
     for (let row = GRID_ROWS - 1; row > 0; row--) {
+      if (!grid[row] || !grid[row - 1]) continue;
       const bottom = grid[row][col];
       const above  = grid[row - 1][col];
 
       // Check for 3-in-a-column merge
       if (row > 1) {
+        if (!grid[row - 2]) continue;
         const top = grid[row - 2][col];
 
         if (bottom && above && top && bottom.value === above.value && above.value === top.value) {
-          const mergeValue = bottom.value * 2;
+          const mergeValue = bottom.value * 3;
           scoreGained += mergeValue;
 
           const merged = makeTile(mergeValue, row, col, { isMerged: true });
@@ -192,13 +302,16 @@ function mergeVertical(grid: (Tile | null)[][]): { scoreGained: number; didMerge
 
 /**
  * Fully settle the grid:
- *   gravity → vertical merges → gravity → horizontal merges → repeat until stable.
+ *   gravity → L-shape merges → vertical merges → gravity → horizontal merges → repeat until stable.
  */
 function settleGrid(grid: (Tile | null)[][]): { score: number } {
   let totalScore = 0;
 
   for (let pass = 0; pass < 32; pass++) { // 32 passes is more than enough for any realistic chain
     applyGravityToGrid(grid);
+
+    const l = mergeLShape(grid);
+    totalScore += l.scoreGained;
 
     const v = mergeVertical(grid);
     totalScore += v.scoreGained;
@@ -208,7 +321,7 @@ function settleGrid(grid: (Tile | null)[][]): { score: number } {
     const h = mergeHorizontal(grid);
     totalScore += h.scoreGained;
 
-    if (!v.didMerge && !h.didMerge) break; // fully stable
+    if (!v.didMerge && !h.didMerge && !l.didMerge) break; // fully stable
   }
 
   // Final gravity to close any remaining gaps
@@ -226,15 +339,23 @@ export function dropTile(
   value: number,
   col: number
 ): MergeResult {
-  if (!canDropInColumn(grid, col)) {
-    return { grid, score: 0 };
+  if (!grid || !Array.isArray(grid) || !canDropInColumn(grid, col)) {
+    return { grid: grid || createEmptyGrid(), score: 0 };
   }
 
   // Deep-copy the grid
-  const newGrid: (Tile | null)[][] = grid.map(row => row.map(cell => cell ? { ...cell } : null));
+  const newGrid: (Tile | null)[][] = Array.from({ length: GRID_ROWS }, (_, rowIndex) => {
+    const sourceRow = Array.isArray(grid[rowIndex]) ? grid[rowIndex] : [];
+    return Array.from({ length: GRID_COLS }, (_, colIndex) => {
+      const cell = sourceRow[colIndex];
+      return cell && typeof cell === 'object' ? { ...cell } : null;
+    });
+  });
 
   // Place new tile at row 0 of the target column with animation tracking
-  newGrid[0][col] = makeTile(value, 0, col, { isFalling: true, fromRow: -1, fromCol: col });
+  if (newGrid[0] && Array.isArray(newGrid[0])) {
+    newGrid[0][col] = makeTile(value, 0, col, { isFalling: true, fromRow: -1, fromCol: col });
+  }
 
   // Settle: gravity + vertical merges + horizontal merges, chained until stable
   const { score: mergeScore } = settleGrid(newGrid);

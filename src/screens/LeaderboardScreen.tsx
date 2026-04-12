@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { leaderboardService } from '../services/leaderboardService';
 import { LeaderboardEntry } from '../types/game';
 import { useUser } from '../contexts/UserContext';
@@ -22,9 +22,11 @@ export default function LeaderboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadLeaderboard();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadLeaderboard();
+    }, [username])
+  );
 
   const loadLeaderboard = async () => {
     try {
@@ -87,6 +89,8 @@ export default function LeaderboardScreen() {
           styles.itemContainer,
           isCurrentUser && styles.currentUserItem,
         ]}
+        accessibilityRole="summary"
+        accessibilityLabel={`${isCurrentUser ? 'Your entry.' : 'Leaderboard entry.'} Rank ${rank}. ${item.username}. Score ${item.score}. Best tile ${item.bestTile}. Games played ${item.gamesPlayed}.`}
       >
         <View style={[styles.rankBadge, { backgroundColor: rankStyle.bg }]}>
           <Text style={[styles.rankText, rank <= 3 ? styles.rankIcon : { color: rankStyle.color }]}>
@@ -111,7 +115,7 @@ export default function LeaderboardScreen() {
 
   const HeaderComponent = () => (
     <View style={styles.headerRow}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back to home">
         <Text style={styles.backBtnText}>←</Text>
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Leaderboard</Text>
@@ -147,6 +151,8 @@ export default function LeaderboardScreen() {
               loadLeaderboard();
             }}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading leaderboard"
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
@@ -178,9 +184,16 @@ export default function LeaderboardScreen() {
         data={leaderboard}
         renderItem={renderLeaderboardItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, leaderboard.length === 0 && styles.emptyListContent]}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        accessibilityLabel="Leaderboard entries"
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No scores yet</Text>
+            <Text style={styles.emptyStateText}>Be the first to finish a run and claim the top spot.</Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -264,6 +277,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xxl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xxxl,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    paddingHorizontal: Spacing.xxxl,
+    paddingVertical: Spacing.xxxl,
+  },
+  emptyStateTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  emptyStateText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    lineHeight: 21,
   },
   itemContainer: {
     flexDirection: 'row',

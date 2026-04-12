@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Number Merge",
-    "slug": "number-merge",
+    "name": "NumberMerger",
+    "slug": "numbermerger",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -19,8 +19,12 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": [],
-      "googleServicesFile": "./google-services.json"
+      "splash": {
+        "image": "./assets/splash.png",
+        "backgroundColor": "#0A0E21",
+        "resizeMode": "contain"
+      },
+      "permissions": []
     },
     "web": {
       "bundler": "webpack"

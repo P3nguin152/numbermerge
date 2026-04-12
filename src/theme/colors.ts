@@ -1,7 +1,7 @@
-// ─── Number Merge – Design System ───────────────────────────────────────
-// A premium dark-mode palette inspired by glass-morphism & modern mobile games
+// ─── NumberMerger – Design System ───────────────────────────────────────
+// A premium palette inspired by glass-morphism & modern mobile games
 
-export const Colors = {
+export const DarkColors = {
   // Backgrounds
   bg: '#0A0E21',
   bgLight: '#111632',
@@ -45,6 +45,54 @@ export const Colors = {
   divider: 'rgba(255,255,255,0.06)',
   glass: 'rgba(255,255,255,0.04)',
 } as const;
+
+export const LightColors = {
+  // Backgrounds
+  bg: '#F5F7FA',
+  bgLight: '#FFFFFF',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  cardBorder: 'rgba(0,0,0,0.08)',
+  cardHighlight: 'rgba(0,0,0,0.02)',
+
+  // Accent colours
+  primary: '#7C5CFC',
+  primaryLight: '#A78BFA',
+  primaryDim: 'rgba(124,92,252,0.12)',
+
+  accent: '#FF6B6B',
+  accentLight: '#FF8E53',
+  accentDim: 'rgba(255,107,107,0.12)',
+
+  success: '#34D399',
+  successDim: 'rgba(52,211,153,0.12)',
+
+  warning: '#FBBF24',
+  warningDim: 'rgba(251,191,36,0.12)',
+
+  info: '#38BDF8',
+  infoDim: 'rgba(56,189,248,0.12)',
+
+  danger: '#F43F5E',
+  dangerDim: 'rgba(244,63,94,0.12)',
+
+  gold: '#FFD700',
+  goldDim: 'rgba(255,215,0,0.12)',
+
+  // Text
+  textPrimary: '#1A1A2E',
+  textSecondary: '#5A6380',
+  textMuted: '#8B95B8',
+  textInverse: '#FFFFFF',
+
+  // Misc
+  overlay: 'rgba(0,0,0,0.6)',
+  divider: 'rgba(0,0,0,0.08)',
+  glass: 'rgba(0,0,0,0.03)',
+} as const;
+
+// Default to dark mode for backward compatibility
+export const Colors = DarkColors;
 
 export const TileColors: Record<number, { bg: string; text: string; glow: string }> = {
   2:    { bg: '#FF6B9D', text: '#fff', glow: 'rgba(255,107,157,0.35)' },

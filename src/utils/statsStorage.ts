@@ -48,3 +48,11 @@ export async function updateStats(
   await saveStats(newStats);
   return newStats;
 }
+
+export async function clearStats(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STATS_KEY);
+  } catch (error) {
+    console.error('Failed to clear stats:', error);
+  }
+}

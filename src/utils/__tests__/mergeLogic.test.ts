@@ -140,5 +140,81 @@ describe('mergeLogic', () => {
       
       expect(grid).toEqual(originalGrid);
     });
+
+    it('should merge 3-in-a-row horizontally', () => {
+      const grid = createEmptyGrid();
+      // Create a row with three matching tiles at the bottom
+      grid[GRID_ROWS - 1][0] = { id: '1', value: 2, row: GRID_ROWS - 1, col: 0, isFalling: false, isMerged: false };
+      grid[GRID_ROWS - 1][1] = { id: '2', value: 2, row: GRID_ROWS - 1, col: 1, isFalling: false, isMerged: false };
+      grid[GRID_ROWS - 1][2] = { id: '3', value: 2, row: GRID_ROWS - 1, col: 2, isFalling: false, isMerged: false };
+      
+      const result = dropTile(grid, 3, 2);
+      
+      // Should have merged the three tiles into one at position 2
+      const mergedTile = result.grid[GRID_ROWS - 1][2];
+      expect(mergedTile?.value).toBe(4);
+      expect(result.grid[GRID_ROWS - 1][0]).toBeNull();
+      expect(result.grid[GRID_ROWS - 1][1]).toBeNull();
+    });
+
+    it('should merge 3-in-a-column vertically', () => {
+      const grid = createEmptyGrid();
+      // Create a column with three matching tiles at the bottom
+      grid[GRID_ROWS - 1][0] = { id: '1', value: 2, row: GRID_ROWS - 1, col: 0, isFalling: false, isMerged: false };
+      grid[GRID_ROWS - 2][0] = { id: '2', value: 2, row: GRID_ROWS - 2, col: 0, isFalling: false, isMerged: false };
+      grid[GRID_ROWS - 3][0] = { id: '3', value: 2, row: GRID_ROWS - 3, col: 0, isFalling: false, isMerged: false };
+      
+      const result = dropTile(grid, 0, 2);
+      
+      // Should have merged the three tiles into one at the bottom
+      const mergedTile = result.grid[GRID_ROWS - 1][0];
+      expect(mergedTile?.value).toBe(4);
+      expect(result.grid[GRID_ROWS - 2][0]).toBeNull();
+      expect(result.grid[GRID_ROWS - 3][0]).toBeNull();
+    });
+
+    it('should handle chain reactions', () => {
+      const grid = createEmptyGrid();
+      // Create a setup that will cause a chain reaction
+      grid[GRID_ROWS - 1][0] = { id: '1', value: 2, row: GRID_ROWS - 1, col: 0, isFalling: false, isMerged: false };
+      grid[GRID_ROWS - 2][0] = { id: '2', value: 2, row: GRID_ROWS - 2, col: 0, isFalling: false, isMerged: false };
+      grid[GRID_ROWS - 1][1] = { id: '3', value: 4, row: GRID_ROWS - 1, col: 1, isFalling: false, isMerged: false };
+      
+      const result = dropTile(grid, 0, 2);
+      
+      // First merge creates a 4, which should then merge with the existing 4
+      const mergedTile = result.grid[GRID_ROWS - 1][1];
+      expect(mergedTile?.value).toBe(8);
+      expect(result.score).toBeGreaterThan(4);
+    });
+
+    it('should handle full grid edge case', () => {
+      const grid = createEmptyGrid();
+      // Fill the grid completely
+      for (let col = 0; col < GRID_COLS; col++) {
+        for (let row = 0; row < GRID_ROWS; row++) {
+          grid[row][col] = { id: `${row}-${col}`, value: 2, row, col, isFalling: false, isMerged: false };
+        }
+      }
+      
+      const result = dropTile(grid, 0, 2);
+      
+      // Should not be able to drop
+      expect(result.score).toBe(0);
+      expect(result.grid).toEqual(grid);
+    });
+
+    it('should handle single column fill', () => {
+      const grid = createEmptyGrid();
+      // Fill one column completely
+      for (let row = 0; row < GRID_ROWS; row++) {
+        grid[row][0] = { id: `${row}`, value: 2, row, col: 0, isFalling: false, isMerged: false };
+      }
+      
+      const result = dropTile(grid, 0, 4);
+      
+      // Should not be able to drop in full column
+      expect(result.score).toBe(0);
+    });
   });
 });

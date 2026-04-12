@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { loadStats } from '../utils/statsStorage';
 import UsernameModal from '../components/UsernameModal';
 import { useUser } from '../contexts/UserContext';
@@ -8,21 +8,23 @@ import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { username, isLoading: userLoading } = useUser();
+  const { username, avatar, isLoading: userLoading } = useUser();
   const [stats, setStats] = useState({
     highScore: 0,
     gamesPlayed: 0,
   });
   const [showUsernameModal, setShowUsernameModal] = useState(false);
 
-  useEffect(() => {
-    loadStats().then(loadedStats => {
-      setStats({
-        highScore: loadedStats.highScore,
-        gamesPlayed: loadedStats.gamesPlayed,
+  useFocusEffect(
+    React.useCallback(() => {
+      loadStats().then(loadedStats => {
+        setStats({
+          highScore: loadedStats.highScore,
+          gamesPlayed: loadedStats.gamesPlayed,
+        });
       });
-    });
-  }, []);
+    }, [])
+  );
 
   useEffect(() => {
     if (!userLoading && !username) {
@@ -47,7 +49,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.profileRing}>
-              <Text style={styles.profileIcon}>👤</Text>
+              <Text style={styles.profileIcon}>{avatar}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -59,7 +61,7 @@ export default function HomeScreen() {
               <Text style={styles.logoText}>N</Text>
             </View>
           </View>
-          <Text style={styles.appTitle}>Number Merge</Text>
+          <Text style={styles.appTitle}>NumberMerger</Text>
           <Text style={styles.appSubtitle}>Merge · Combo · Dominate</Text>
         </View>
 
@@ -139,10 +141,29 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.menuChevron}>›</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('GameModeSelection' as never)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: Colors.primaryDim }]}>
+              <Text style={styles.menuIcon}>🎮</Text>
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Game Modes</Text>
+              <Text style={styles.menuSubtitle}>Time Attack, Limited Moves</Text>
+            </View>
+            <Text style={styles.menuChevron}>›</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Daily Challenge Banner */}
-        <TouchableOpacity style={styles.dailyBanner} activeOpacity={0.85}>
+        <TouchableOpacity 
+          style={styles.dailyBanner} 
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('DailyChallenge' as never)}
+        >
           <View style={styles.dailyGlow} />
           <View style={styles.dailyIconBox}>
             <Text style={styles.dailyIcon}>📅</Text>

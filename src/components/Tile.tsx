@@ -17,6 +17,10 @@ function Tile({ tile }: TileProps) {
   const translateYValue = React.useRef(new Animated.Value(0)).current;
   const translateXValue = React.useRef(new Animated.Value(0)).current;
 
+  if (!tile || typeof tile !== 'object') {
+    return null;
+  }
+
   React.useEffect(() => {
     if (tile.isFalling) {
       translateYValue.setValue(-80);
@@ -24,19 +28,19 @@ function Tile({ tile }: TileProps) {
         Animated.spring(scaleValue, {
           toValue: 1,
           useNativeDriver: true,
-          tension: 40,
-          friction: 8,
+          tension: 20,
+          friction: 12,
         }),
         Animated.timing(opacityValue, {
           toValue: 1,
-          duration: 300,
+          duration: 600,
           useNativeDriver: true,
         }),
         Animated.spring(translateYValue, {
           toValue: 0,
           useNativeDriver: true,
-          tension: 30,
-          friction: 10,
+          tension: 15,
+          friction: 14,
         }),
       ]).start();
     }
@@ -44,19 +48,13 @@ function Tile({ tile }: TileProps) {
 
   React.useEffect(() => {
     if (tile.isMerged) {
-      Animated.sequence([
-        Animated.timing(scaleValue, {
-          toValue: 1.4,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleValue, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 7,
-        }),
-      ]).start();
+      scaleValue.setValue(1.2);
+      Animated.spring(scaleValue, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 30,
+        friction: 12,
+      }).start();
     }
   }, [tile.isMerged, scaleValue]);
 
@@ -67,8 +65,8 @@ function Tile({ tile }: TileProps) {
       Animated.spring(translateXValue, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 50,
-        friction: 8,
+        tension: 20,
+        friction: 12,
       }).start();
     }
   }, [tile.isMoving, tile.fromCol, tile.col, translateXValue]);

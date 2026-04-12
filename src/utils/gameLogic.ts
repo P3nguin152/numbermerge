@@ -1,6 +1,6 @@
 import { Tile } from '../types/game';
 
-const GRID_SIZE = 6;
+const GRID_SIZE = 5;
 const COLS = 5;
 
 export function createEmptyGrid(): (Tile | null)[][] {
@@ -8,7 +8,7 @@ export function createEmptyGrid(): (Tile | null)[][] {
 }
 
 export function generateNextTile(): number {
-  const tiles = [2, 4, 8, 16];
+  const tiles = [2, 4, 8, 16, 32];
   return tiles[Math.floor(Math.random() * tiles.length)];
 }
 

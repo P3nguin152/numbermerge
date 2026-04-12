@@ -1,153 +1,49 @@
-import { Audio } from 'expo-av';
-import * as Haptics from 'expo-haptics';
-import { Platform } from 'react-native';
+import { Vibration } from 'react-native';
 
 export type SoundType = 'drop' | 'merge' | 'gameOver' | 'pause' | 'resume' | 'click';
 
 class SoundManager {
-  private sounds: Map<SoundType, Audio.Sound> = new Map();
-  private backgroundMusic: Audio.Sound | null = null;
   private isSoundEnabled: boolean = true;
   private isMusicEnabled: boolean = true;
   private isVibrationEnabled: boolean = true;
-  private isInitialized: boolean = false;
-  private soundsLoaded: boolean = false;
 
   async initialize() {
-    if (this.isInitialized) return;
-
-    try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
-      this.isInitialized = true;
-    } catch (error) {
-      console.warn('Failed to initialize audio:', error);
-    }
+    // Audio and haptics disabled for now - expo-av and expo-haptics removed due to build issues
   }
 
-  async loadSound(type: SoundType, fileName: string) {
-    if (!this.isInitialized) await this.initialize();
-
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: fileName },
-        { shouldPlay: false }
-      );
-      this.sounds.set(type, sound);
-    } catch (error) {
-      console.warn(`Failed to load sound ${type}:`, error);
-    }
+  async loadSound(_type: SoundType, _fileName: string) {
+    // Audio disabled for now
   }
 
   async loadSounds() {
-    if (this.soundsLoaded) return;
-
-    // Load sound effects - these files need to be added to assets/sounds/
-    // For now, we'll try to load them but handle errors gracefully
-    try {
-      await this.loadSound('drop', require('../../assets/sounds/drop.mp3'));
-      await this.loadSound('merge', require('../../assets/sounds/merge.mp3'));
-      await this.loadSound('gameOver', require('../../assets/sounds/gameover.mp3'));
-      await this.loadSound('pause', require('../../assets/sounds/pause.mp3'));
-      await this.loadSound('resume', require('../../assets/sounds/resume.mp3'));
-      await this.loadSound('click', require('../../assets/sounds/click.mp3'));
-      this.soundsLoaded = true;
-    } catch (error) {
-      console.warn('Sound files not found - audio will be disabled until files are added:', error);
-      this.soundsLoaded = false;
-    }
+    // Audio disabled for now
   }
 
-  async loadBackgroundMusic(fileName: string) {
-    if (!this.isInitialized) await this.initialize();
-
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: fileName },
-        { shouldPlay: false, isLooping: true }
-      );
-      this.backgroundMusic = sound;
-    } catch (error) {
-      console.warn('Failed to load background music:', error);
-    }
+  async loadBackgroundMusic(_fileName: string) {
+    // Audio disabled for now
   }
 
-  async playSound(type: SoundType) {
-    if (!this.isSoundEnabled) return;
-
-    // Trigger vibration if enabled
-    if (this.isVibrationEnabled) {
-      this.triggerVibration(type);
+  async playSound(_type: SoundType) {
+    if (!this.isVibrationEnabled) {
+      return;
     }
 
-    const sound = this.sounds.get(type);
-    if (sound) {
-      try {
-        await sound.replayAsync();
-      } catch (error) {
-        console.warn(`Failed to play sound ${type}:`, error);
-      }
-    }
-  }
-
-  private async triggerVibration(type: SoundType) {
-    if (Platform.OS === 'web') return;
-
-    try {
-      switch (type) {
-        case 'drop':
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          break;
-        case 'merge':
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          break;
-        case 'gameOver':
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          break;
-        case 'pause':
-        case 'resume':
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          break;
-        case 'click':
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          break;
-      }
-    } catch (error) {
-      console.warn('Failed to trigger vibration:', error);
+    const pattern = this.getVibrationPattern(_type);
+    if (pattern) {
+      Vibration.vibrate(pattern);
     }
   }
 
   async playBackgroundMusic() {
-    if (!this.isMusicEnabled || !this.backgroundMusic) return;
-
-    try {
-      await this.backgroundMusic.playAsync();
-    } catch (error) {
-      console.warn('Failed to play background music:', error);
-    }
+    // Audio disabled for now
   }
 
   async pauseBackgroundMusic() {
-    if (!this.backgroundMusic) return;
-
-    try {
-      await this.backgroundMusic.pauseAsync();
-    } catch (error) {
-      console.warn('Failed to pause background music:', error);
-    }
+    // Audio disabled for now
   }
 
   async stopBackgroundMusic() {
-    if (!this.backgroundMusic) return;
-
-    try {
-      await this.backgroundMusic.stopAsync();
-    } catch (error) {
-      console.warn('Failed to stop background music:', error);
-    }
+    // Audio disabled for now
   }
 
   setSoundEnabled(enabled: boolean) {
@@ -156,9 +52,6 @@ class SoundManager {
 
   setMusicEnabled(enabled: boolean) {
     this.isMusicEnabled = enabled;
-    if (!enabled) {
-      this.stopBackgroundMusic();
-    }
   }
 
   setVibrationEnabled(enabled: boolean) {
@@ -177,29 +70,26 @@ class SoundManager {
     return this.isVibrationEnabled;
   }
 
+  private getVibrationPattern(type: SoundType): number | number[] | null {
+    switch (type) {
+      case 'drop':
+        return 10;
+      case 'merge':
+        return [0, 20, 30, 25];
+      case 'gameOver':
+        return [0, 35, 40, 35, 50, 45];
+      case 'pause':
+      case 'resume':
+      case 'click':
+        return 15;
+      default:
+        return null;
+    }
+  }
+
   async cleanup() {
-    // Stop background music
-    await this.stopBackgroundMusic();
-
-    // Unload all sounds
-    for (const sound of this.sounds.values()) {
-      try {
-        await sound.unloadAsync();
-      } catch (error) {
-        console.warn('Failed to unload sound:', error);
-      }
-    }
-    this.sounds.clear();
-
-    // Unload background music
-    if (this.backgroundMusic) {
-      try {
-        await this.backgroundMusic.unloadAsync();
-      } catch (error) {
-        console.warn('Failed to unload background music:', error);
-      }
-      this.backgroundMusic = null;
-    }
+    // Audio disabled for now
+    Vibration.cancel();
   }
 }
 

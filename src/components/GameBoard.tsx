@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, AccessibilityInfo } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import Grid from './Grid';
+import TutorialOverlay from './TutorialOverlay';
 import { GameState } from '../types/game';
 import {
   createEmptyGrid,
@@ -18,22 +19,31 @@ import {
   isGameOver,
   canDropInColumn,
   GRID_COLS,
+  GRID_ROWS,
 } from '../utils/mergeLogic';
 import { updateStats, loadStats } from '../utils/statsStorage';
+import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
 import { loadSettings } from '../utils/settingsStorage';
 import { useUser } from '../contexts/UserContext';
 import { leaderboardService } from '../services/leaderboardService';
+import { hasCompletedTutorial } from '../utils/tutorialStorage';
 
 import { Colors, TileColors as ThemeTileColors, Radius, Spacing } from '../theme/colors';
 
 export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.fromEntries(
-  Object.entries(ThemeTileColors).map(([k, v]) => [k, { bg: v.bg, text: v.text }])
+  Object.entries(ThemeTileColors || {}).map(([k, v]) => {
+    if (v && typeof v === 'object' && 'bg' in v && 'text' in v) {
+      return [k, { bg: v.bg, text: v.text }];
+    }
+    return [k, { bg: '#3c3a32', text: '#f9f6f2' }];
+  })
 );
 
 function GameBoard() {
   const navigation = useNavigation();
   const { username } = useUser();
+  const [personalBest, setPersonalBest] = useState(0);
   const [gameState, setGameState] = useState<GameState>(() => ({
     grid: createEmptyGrid(),
     score: 0,
@@ -45,6 +55,9 @@ function GameBoard() {
   const [isPaused, setIsPaused] = useState(false);
   const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
   const [isSubmittingScore, setIsSubmittingScore] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showNewBest, setShowNewBest] = useState(false);
+  const [didBeatPersonalBest, setDidBeatPersonalBest] = useState(false);
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -59,6 +72,23 @@ function GameBoard() {
 
     loadStats().then(stats => {
       setTotalGamesPlayed(stats.gamesPlayed);
+      setPersonalBest(stats.highScore);
+    });
+
+    // Load saved game state if exists
+    loadGameState().then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile }) => {
+      if (savedState && !savedState.gameOver) {
+        setGameState(savedState);
+        setMerges(savedMerges);
+        setBestTile(savedBestTile);
+      }
+    });
+
+    // Check if tutorial should be shown
+    hasCompletedTutorial().then((completed: boolean) => {
+      if (!completed) {
+        setShowTutorial(true);
+      }
     });
 
     return () => {
@@ -72,7 +102,7 @@ function GameBoard() {
   const nextBlockRotate = useSharedValue(0);
   const overlayOpacity = useSharedValue(0);
   const overlayScale = useSharedValue(0.8);
-  const arrowScales = useRef(Array(GRID_COLS).fill(0).map(() => useSharedValue(1))).current;
+  const arrowScales = useRef(Array(GRID_COLS || 5).fill(0).map(() => useSharedValue(1))).current;
   const pauseButtonScale = useSharedValue(1);
 
   // Animate score when it changes
@@ -95,6 +125,29 @@ function GameBoard() {
     );
   }, [gameState.nextTile]);
 
+  useEffect(() => {
+    if (!gameState.gameOver && !isPaused) {
+      overlayOpacity.value = withTiming(0, { duration: 180 });
+      overlayScale.value = withTiming(0.92, { duration: 180 });
+      return;
+    }
+
+    overlayOpacity.value = withTiming(1, { duration: 220 });
+    overlayScale.value = withSpring(1, { damping: 14, stiffness: 220 });
+  }, [gameState.gameOver, isPaused, overlayOpacity, overlayScale]);
+
+  useEffect(() => {
+    if (!showNewBest) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setShowNewBest(false);
+    }, 2200);
+
+    return () => clearTimeout(timeout);
+  }, [showNewBest]);
+
   const handleColumnPress = useCallback((col: number) => {
     if (gameState.gameOver || isPaused) return;
 
@@ -107,18 +160,10 @@ function GameBoard() {
     if (!canDropInColumn(gameState.grid, col)) {
       // End game immediately when column is full
       setGameState(prev => ({ ...prev, gameOver: true }));
-      // Trigger overlay animation
-      overlayOpacity.value = withTiming(1, { duration: 300 });
-      overlayScale.value = withSpring(1, { damping: 15, stiffness: 200 });
-      // Trigger overlay animation
-      overlayOpacity.value = withTiming(1, { duration: 300 });
-      overlayScale.value = withSpring(1, { damping: 15, stiffness: 200 });
-      // Trigger overlay animation
-      overlayOpacity.value = withTiming(1, { duration: 300 });
-      overlayScale.value = withSpring(1, { damping: 15, stiffness: 200 });
       // Save stats when game ends
       updateStats(gameState.score, merges, bestTile);
       soundManager.playSound('gameOver');
+      AccessibilityInfo.announceForAccessibility(`Game over. Final score ${gameState.score}.`);
 
       // Submit score to leaderboard if user has username
       if (username) {
@@ -154,8 +199,8 @@ function GameBoard() {
     let maxMergeValue = 0;
 
     // Count merges and find best tile in the new grid
-    for (let row = 0; row < 6; row++) {
-      for (let c = 0; c < 6; c++) {
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let c = 0; c < GRID_COLS; c++) {
         const tile = newGrid[row][c];
         if (tile) {
           if (tile.isMerged) {
@@ -168,6 +213,7 @@ function GameBoard() {
     }
 
     const totalScore = gameState.score + moveScore;
+    const beatPersonalBest = totalScore > personalBest;
 
     // Play sound effects
     soundManager.playSound('drop');
@@ -177,11 +223,24 @@ function GameBoard() {
 
     setMerges(prev => prev + mergeCount);
     setBestTile(maxTile);
+    if (beatPersonalBest) {
+      setPersonalBest(totalScore);
+    }
 
     if (gameOver) {
+      // Clear saved game state so returning starts a new game
+      clearGameState();
+
       // Save stats when game ends
       updateStats(totalScore, merges + mergeCount, maxTile);
       soundManager.playSound('gameOver');
+      AccessibilityInfo.announceForAccessibility(`Game over. Final score ${totalScore}.`);
+
+      // Show new best banner if personal best was beaten
+      if (beatPersonalBest && !showNewBest) {
+        setDidBeatPersonalBest(true);
+        setShowNewBest(true);
+      }
 
       // Submit score to leaderboard if user has username
       if (username) {
@@ -210,9 +269,11 @@ function GameBoard() {
       nextTile: gameOver ? gameState.nextTile : generateNextValue(),
       lastMergeValue: maxMergeValue || undefined,
     });
-  }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales]);
+  }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest]);
 
   const initializeGame = useCallback(() => {
+    // Clear saved game state when starting a new game
+    clearGameState();
     setGameState({
       grid: createEmptyGrid(),
       score: 0,
@@ -221,6 +282,8 @@ function GameBoard() {
     });
     setMerges(0);
     setBestTile(2);
+    setDidBeatPersonalBest(false);
+    setShowNewBest(false);
   }, []);
 
   const handlePausePress = useCallback(() => {
@@ -247,12 +310,20 @@ function GameBoard() {
   }, [initializeGame]);
 
   const handleQuit = useCallback(() => {
+    // Save game state before quitting
+    if (!gameState.gameOver) {
+      saveGameState(gameState, merges, bestTile);
+    }
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, gameState, merges, bestTile]);
 
   const handleBackPress = useCallback(() => {
+    // Save game state before backing out
+    if (!gameState.gameOver) {
+      saveGameState(gameState, merges, bestTile);
+    }
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, gameState, merges, bestTile]);
 
   const nextColor = useMemo(() => TILE_COLORS[gameState.nextTile]?.bg || '#3c3a32', [gameState.nextTile]);
 
@@ -268,6 +339,14 @@ function GameBoard() {
     transform: [{ scale: pauseButtonScale.value }] as any,
   }), []);
 
+  const overlayAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }), []);
+
+  const overlayCardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: overlayScale.value }] as any,
+  }), []);
+
   return (
     <View style={styles.container}>
       {/* Top Bar */}
@@ -276,19 +355,23 @@ function GameBoard() {
           style={styles.backButton}
           onPress={handleBackPress}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Back to home"
         >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
 
-        <View style={styles.scoreChip}>
+        <View style={styles.scoreChip} accessibilityRole="summary" accessibilityLabel={`Current score ${gameState.score}. Personal best ${personalBest}.`}>
           <Text style={styles.scoreLabel}>SCORE</Text>
           <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>{gameState.score}</Animated.Text>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.pauseBtn}
           onPress={handlePausePress}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={isPaused ? 'Resume game' : 'Pause game'}
         >
           <Animated.Text style={[styles.pauseIcon, pauseButtonAnimatedStyle]}>⏸</Animated.Text>
         </TouchableOpacity>
@@ -297,16 +380,26 @@ function GameBoard() {
       {/* Next Block Strip */}
       <View style={styles.nextStrip}>
         <Text style={styles.nextLabel}>NEXT</Text>
-        <Animated.View style={[styles.nextPreview, { backgroundColor: nextColor }, nextBlockAnimatedStyle]}>
+        <Animated.View style={[styles.nextPreview, { backgroundColor: nextColor }, nextBlockAnimatedStyle]} accessibilityLabel={`Next tile ${gameState.nextTile}`}>
           <Text style={styles.nextNumber}>{gameState.nextTile}</Text>
         </Animated.View>
+        <View style={styles.personalBestChip}>
+          <Text style={styles.personalBestLabel}>BEST</Text>
+          <Text style={styles.personalBestValue}>{personalBest.toLocaleString()}</Text>
+        </View>
       </View>
+
+      {showNewBest && (
+        <View style={styles.newBestBanner} accessibilityLiveRegion="polite">
+          <Text style={styles.newBestText}>New Best! {gameState.score.toLocaleString()}</Text>
+        </View>
+      )}
 
       {/* Drop Arrows */}
       <View style={styles.arrowRow}>
-        {Array(GRID_COLS).fill(null).map((_, i) => {
+        {Array(GRID_COLS || 5).fill(null).map((_, i) => {
           const arrowAnimatedStyle = useAnimatedStyle(() => ({
-            transform: [{ scale: arrowScales[i].value }] as any,
+            transform: [{ scale: arrowScales[i]?.value || 1 }] as any,
           }), []);
           return (
             <TouchableOpacity
@@ -314,6 +407,8 @@ function GameBoard() {
               style={styles.arrowButton}
               onPress={() => handleColumnPress(i)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Drop tile in column ${i + 1}`}
             >
               <Animated.Text style={[styles.arrowText, arrowAnimatedStyle]}>▼</Animated.Text>
             </TouchableOpacity>
@@ -328,22 +423,32 @@ function GameBoard() {
 
       {/* Game Over Overlay */}
       {gameState.gameOver && (
-        <View style={styles.overlay}>
-          <View style={styles.overlayCard}>
+        <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
+          <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
             <Text style={styles.overlayEmoji}>💥</Text>
             <Text style={styles.overlayTitle}>Game Over</Text>
             <View style={styles.overlayScoreRow}>
               <Text style={styles.overlayScoreLabel}>Final Score</Text>
               <Text style={styles.overlayScoreValue}>{gameState.score.toLocaleString()}</Text>
             </View>
+            {didBeatPersonalBest && (
+              <View style={styles.recordBadge}>
+                <Text style={styles.recordBadgeText}>New personal best</Text>
+              </View>
+            )}
             {isSubmittingScore && (
-              <Text style={styles.submittingText}>Submitting score...</Text>
+              <View style={styles.submittingRow}>
+                <ActivityIndicator color={Colors.primaryLight} size="small" />
+                <Text style={styles.submittingText}>Submitting score...</Text>
+              </View>
             )}
             <TouchableOpacity
               style={[styles.overlayBtn, isSubmittingScore && styles.overlayBtnDisabled]}
               onPress={initializeGame}
               activeOpacity={0.85}
               disabled={isSubmittingScore}
+              accessibilityRole="button"
+              accessibilityLabel={isSubmittingScore ? 'Submitting score' : 'Play again'}
             >
               <Text style={styles.overlayBtnText}>
                 {isSubmittingScore ? 'SUBMITTING...' : 'PLAY AGAIN'}
@@ -353,23 +458,27 @@ function GameBoard() {
               style={styles.overlayBtnSecondary}
               onPress={handleQuit}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Back to home"
             >
               <Text style={styles.overlayBtnSecondaryText}>Back to Home</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       )}
 
       {/* Pause Menu Overlay */}
       {isPaused && (
-        <View style={styles.overlay}>
-          <View style={styles.overlayCard}>
+        <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
+          <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
             <Text style={styles.overlayEmoji}>⏸</Text>
             <Text style={styles.overlayTitle}>Paused</Text>
             <TouchableOpacity
               style={styles.overlayBtn}
               onPress={handleResume}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Resume game"
             >
               <Text style={styles.overlayBtnText}>▶  RESUME</Text>
             </TouchableOpacity>
@@ -377,6 +486,8 @@ function GameBoard() {
               style={styles.overlayBtnSecondary}
               onPress={handleRestart}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Restart game"
             >
               <Text style={styles.overlayBtnSecondaryText}>🔄  Restart</Text>
             </TouchableOpacity>
@@ -384,12 +495,20 @@ function GameBoard() {
               style={[styles.overlayBtnSecondary, { borderColor: Colors.danger }]}
               onPress={handleQuit}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Quit game"
             >
               <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>✖  Quit</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       )}
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay
+        visible={showTutorial && !isPaused && !gameState.gameOver}
+        onClose={() => setShowTutorial(false)}
+      />
     </View>
   );
 }
@@ -494,6 +613,38 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
+  personalBestChip: {
+    marginLeft: 'auto',
+    alignItems: 'flex-end',
+  },
+  personalBestLabel: {
+    color: Colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  personalBestValue: {
+    color: Colors.success,
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  newBestBanner: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.successDim,
+    borderColor: Colors.success,
+    borderWidth: 1,
+    borderRadius: Radius.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    alignItems: 'center',
+  },
+  newBestText: {
+    color: Colors.success,
+    fontSize: 14,
+    fontWeight: '800',
+  },
 
   // ── Arrows ──
   arrowRow: {
@@ -517,6 +668,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.sm,
     paddingBottom: Spacing.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // ── Overlays ──
@@ -564,6 +717,20 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '900',
   },
+  recordBadge: {
+    backgroundColor: Colors.successDim,
+    borderColor: Colors.success,
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  recordBadgeText: {
+    color: Colors.success,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   overlayBtn: {
     width: '100%',
     backgroundColor: Colors.primary,
@@ -603,6 +770,11 @@ const styles = StyleSheet.create({
   submittingText: {
     color: Colors.textMuted,
     fontSize: 13,
+  },
+  submittingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     marginBottom: Spacing.lg,
   },
 });

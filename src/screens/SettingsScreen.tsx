@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { loadSettings, updateSetting, GameSettings } from '../utils/settingsStorage';
 import { soundManager } from '../utils/soundManager';
+import { clearGameState } from '../utils/gameStorage';
+import { clearStats } from '../utils/statsStorage';
 import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function SettingsScreen() {
@@ -11,6 +13,7 @@ export default function SettingsScreen() {
     soundEnabled: true,
     musicEnabled: true,
     vibrationEnabled: true,
+    theme: 'dark',
   });
 
   useEffect(() => {
@@ -33,6 +36,41 @@ export default function SettingsScreen() {
     await updateSetting('vibrationEnabled', value);
     setSettings(prev => ({ ...prev, vibrationEnabled: value }));
     soundManager.setVibrationEnabled(value);
+  };
+
+  const handleThemeToggle = async (theme: 'dark' | 'light') => {
+    await updateSetting('theme', theme);
+    setSettings(prev => ({ ...prev, theme }));
+    // Note: In a real app, you'd need to reload the app or use a theme provider
+    // For now, we'll just save the preference
+    Alert.alert(
+      'Theme Changed',
+      `Theme changed to ${theme} mode. Restart the app to see the full effect.`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleResetData = () => {
+    Alert.alert(
+      'Reset All Data',
+      'This will delete all your game progress, stats, and settings. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearGameState();
+              await clearStats();
+              Alert.alert('Success', 'All data has been reset.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reset data. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -107,27 +145,64 @@ export default function SettingsScreen() {
           <Text style={styles.sectionLabel}>APPEARANCE</Text>
           
           <View style={styles.card}>
-            <TouchableOpacity style={[styles.cardItem, styles.cardItemBorder]} activeOpacity={0.7}>
+            <TouchableOpacity 
+              style={[styles.cardItem, styles.cardItemBorder]} 
+              activeOpacity={0.7}
+              onPress={() => handleThemeToggle('dark')}
+            >
               <View style={styles.themePreview}>
                 <View style={styles.themePreviewInner} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Dark Mode</Text>
-                <Text style={styles.cardItemSubtitle}>Currently active</Text>
+                <Text style={styles.cardItemSubtitle}>{settings.theme === 'dark' ? 'Currently active' : 'Switch to dark'}</Text>
               </View>
-              <View style={styles.checkBadge}>
-                <Text style={styles.checkIcon}>✓</Text>
-              </View>
+              {settings.theme === 'dark' && (
+                <View style={styles.checkBadge}>
+                  <Text style={styles.checkIcon}>✓</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.cardItem, styles.cardItemDisabled]} activeOpacity={1}>
+            <TouchableOpacity 
+              style={[styles.cardItem]} 
+              activeOpacity={0.7}
+              onPress={() => handleThemeToggle('light')}
+            >
               <View style={[styles.themePreview, styles.themePreviewLight]}>
                 <View style={[styles.themePreviewInner, styles.themePreviewInnerLight]} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Light Mode</Text>
-                <Text style={styles.cardItemSubtitle}>Coming soon</Text>
+                <Text style={styles.cardItemSubtitle}>{settings.theme === 'light' ? 'Currently active' : 'Switch to light'}</Text>
               </View>
+              {settings.theme === 'light' && (
+                <View style={styles.checkBadge}>
+                  <Text style={styles.checkIcon}>✓</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Data Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>DATA</Text>
+          
+          <View style={styles.card}>
+            <TouchableOpacity 
+              style={[styles.cardItem, styles.dangerItem]} 
+              activeOpacity={0.7}
+              onPress={handleResetData}
+            >
+              <View style={[styles.iconBox, { backgroundColor: Colors.dangerDim }]}>
+                <Text style={styles.iconEmoji}>🗑️</Text>
+              </View>
+              <View style={styles.cardItemContent}>
+                <Text style={[styles.cardItemTitle, styles.dangerText]}>Reset All Data</Text>
+                <Text style={styles.cardItemSubtitle}>Clear progress, stats & settings</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -295,5 +370,11 @@ const styles = StyleSheet.create({
   },
   themePreviewInnerLight: {
     backgroundColor: '#E0E0E0',
+  },
+  dangerItem: {
+    borderColor: Colors.dangerDim,
+  },
+  dangerText: {
+    color: Colors.danger,
   },
 });

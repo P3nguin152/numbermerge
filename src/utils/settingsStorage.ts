@@ -6,12 +6,14 @@ export interface GameSettings {
   soundEnabled: boolean;
   musicEnabled: boolean;
   vibrationEnabled: boolean;
+  theme: 'dark' | 'light';
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
   soundEnabled: true,
   musicEnabled: true,
   vibrationEnabled: true,
+  theme: 'dark',
 };
 
 export async function loadSettings(): Promise<GameSettings> {

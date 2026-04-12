@@ -1,7 +1,7 @@
 import { Tile, SpecialTileType } from '../types/game';
 
-export const GRID_ROWS = 6;
-export const GRID_COLS = 6;
+export const GRID_ROWS = 5;
+export const GRID_COLS = 5;
 
 /**
  * Generate a special tile type based on tile value and rarity system

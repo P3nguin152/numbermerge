@@ -1,28 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { loadStats } from '../utils/statsStorage';
+import { useUser } from '../contexts/UserContext';
+import { getAvatarOptions } from '../utils/avatarStorage';
 import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
+  const { username, avatar, setAvatar } = useUser();
   const [stats, setStats] = useState({
     highScore: 0,
     gamesPlayed: 0,
     totalMerges: 0,
     bestTile: 2,
   });
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
-  useEffect(() => {
-    loadStats().then(loadedStats => {
-      setStats({
-        highScore: loadedStats.highScore,
-        gamesPlayed: loadedStats.gamesPlayed,
-        totalMerges: loadedStats.totalMerges,
-        bestTile: loadedStats.bestTile,
+  useFocusEffect(
+    React.useCallback(() => {
+      loadStats().then(loadedStats => {
+        setStats({
+          highScore: loadedStats.highScore,
+          gamesPlayed: loadedStats.gamesPlayed,
+          totalMerges: loadedStats.totalMerges,
+          bestTile: loadedStats.bestTile,
+        });
       });
-    });
-  }, []);
+    }, [])
+  );
 
   const achievements = [
     { id: 1, icon: '🔥', title: 'On Fire', desc: 'Reach 5000 points', unlocked: stats.highScore >= 5000 },
@@ -46,14 +52,55 @@ export default function ProfileScreen() {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileGlow} />
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarEmoji}>🎮</Text>
-          </View>
-          <Text style={styles.profileName}>Player</Text>
+          <TouchableOpacity 
+            style={styles.profileAvatar}
+            onPress={() => setShowAvatarPicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.profileAvatarEmoji}>{avatar}</Text>
+            <View style={styles.editBadge}>
+              <Text style={styles.editBadgeText}>✎</Text>
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.profileName}>{username || 'Player'}</Text>
           <View style={styles.levelBadge}>
-            <Text style={styles.levelBadgeText}>Level 12</Text>
+            <Text style={styles.levelBadgeText}>Level {Math.floor(stats.gamesPlayed / 10) + 1}</Text>
           </View>
         </View>
+
+        {/* Avatar Picker Modal */}
+        {showAvatarPicker && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Choose Avatar</Text>
+              <View style={styles.avatarGrid}>
+                {getAvatarOptions().map((avatarOption) => (
+                  <TouchableOpacity
+                    key={avatarOption}
+                    style={[
+                      styles.avatarOption,
+                      avatar === avatarOption && styles.avatarOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setAvatar(avatarOption);
+                      setShowAvatarPicker(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.avatarOptionText}>{avatarOption}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowAvatarPicker(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCloseButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Stats Grid */}
         <Text style={styles.sectionLabel}>STATISTICS</Text>
@@ -295,5 +342,85 @@ const styles = StyleSheet.create({
     color: Colors.success,
     fontSize: 16,
     fontWeight: '700',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 28,
+    height: 28,
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: Colors.primary,
+  },
+  editBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xxl,
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.xxl,
+    width: '100%',
+    maxWidth: 350,
+  },
+  modalTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: Spacing.lg,
+    textAlign: 'center',
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  avatarOption: {
+    width: 60,
+    height: 60,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOptionSelected: {
+    backgroundColor: Colors.primaryDim,
+    borderColor: Colors.primary,
+    borderWidth: 2,
+  },
+  avatarOptionText: {
+    fontSize: 32,
+  },
+  modalCloseButton: {
+    width: '100%',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.sm,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  modalCloseButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

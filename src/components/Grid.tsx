@@ -11,32 +11,39 @@ interface GridProps {
 
 function Grid({ grid, onColumnPress }: GridProps) {
   return (
-    <View style={styles.container}>
-      {grid.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map((tile, colIndex) => (
-            <View key={`${rowIndex}-${colIndex}`} style={styles.cellContainer}>
-              {tile ? (
-                <TouchableOpacity
-                  style={styles.cell}
-                  onPress={() => onColumnPress(colIndex)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.tileWrapper}>
-                    <Tile tile={tile} />
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.emptyCell}
-                  onPress={() => onColumnPress(colIndex)}
-                  activeOpacity={1}
-                />
-              )}
-            </View>
-          ))}
-        </View>
-      ))}
+    <View style={styles.container} accessibilityLabel="Game board. Tap any cell to drop the next tile into that column.">
+      {grid.map((row, rowIndex) => {
+        if (!row || !Array.isArray(row)) return null;
+        return (
+          <View key={rowIndex} style={styles.row}>
+            {row.map((tile, colIndex) => (
+              <View key={`${rowIndex}-${colIndex}`} style={styles.cellContainer}>
+                {tile ? (
+                  <TouchableOpacity
+                    style={styles.cell}
+                    onPress={() => onColumnPress(colIndex)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Row ${rowIndex + 1} column ${colIndex + 1}. Tile ${tile.value}. Drop next tile in this column.`}
+                  >
+                    <View style={styles.tileWrapper}>
+                      <Tile tile={tile} />
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.emptyCell}
+                    onPress={() => onColumnPress(colIndex)}
+                    activeOpacity={1}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Empty row ${rowIndex + 1} column ${colIndex + 1}. Drop next tile in this column.`}
+                  />
+                )}
+              </View>
+            ))}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -49,8 +56,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    padding: 3,
-    flex: 1,
+    padding: 4,
+    aspectRatio: 1,
+    maxWidth: 350,
+    maxHeight: 350,
+    alignSelf: 'center',
   },
   row: {
     flexDirection: 'row',
@@ -62,10 +72,11 @@ const styles = StyleSheet.create({
   },
   cell: {
     flex: 1,
-    margin: 3,
+    margin: 2,
     borderRadius: Radius.xs,
     justifyContent: 'center',
     alignItems: 'center',
+    aspectRatio: 1,
   },
   tileWrapper: {
     flex: 1,
@@ -74,7 +85,8 @@ const styles = StyleSheet.create({
   },
   emptyCell: {
     flex: 1,
-    margin: 3,
+    margin: 2,
     borderRadius: Radius.xs,
+    aspectRatio: 1,
   },
 });
