@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - NumberMerge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0A0E21;
+            margin-bottom: 10px;
+        }
+        .last-updated {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #0A0E21;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        p {
+            margin-bottom: 15px;
+        }
+        ul {
+            margin-left: 25px;
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        strong {
+            color: #0A0E21;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 30px 0;
+        }
+        .effective-date {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Privacy Policy - NumberMerge</h1>
+        <p class="last-updated"><strong>Last Updated:</strong> April 12, 2026</p>
+
+        <h2>1. Introduction</h2>
+        <p>Welcome to NumberMerge. This Privacy Policy explains how we collect, use, store, and protect your personal information when you use our mobile application. By using NumberMerge, you agree to the terms of this Privacy Policy.</p>
+
+        <h2>2. Information We Collect</h2>
+        
+        <h3>2.1 Information You Provide</h3>
+        <ul>
+            <li><strong>Username</strong>: When you register for the leaderboard, you provide a username that will be displayed publicly</li>
+            <li><strong>Game Data</strong>: Your scores, best tiles achieved, and number of games played are collected for leaderboard purposes</li>
+        </ul>
+
+        <h3>2.2 Automatically Collected Information</h3>
+        <ul>
+            <li><strong>Local Game State</strong>: Your current game progress (grid state, score, next tile) is stored locally on your device</li>
+            <li><strong>App Usage Data</strong>: Basic usage metrics may be collected for app improvement purposes</li>
+        </ul>
+
+        <h3>2.3 Information We Do NOT Collect</h3>
+        <ul>
+            <li>We do not collect your real name, email address, phone number, or physical location</li>
+            <li>We do not collect personally identifiable information beyond your chosen username</li>
+            <li>We do not collect payment or financial information</li>
+            <li>We do not collect contacts or social media information</li>
+        </ul>
+
+        <h2>3. How We Use Your Information</h2>
+        
+        <h3>3.1 Primary Uses</h3>
+        <ul>
+            <li><strong>Leaderboard Display</strong>: Your username, scores, and game statistics are displayed on the global leaderboard</li>
+            <li><strong>Game Progress</strong>: Local storage of your game state allows you to resume games after closing the app</li>
+            <li><strong>Score Tracking</strong>: We track your best scores and achievements for personal progress tracking</li>
+        </ul>
+
+        <h3>3.2 Secondary Uses</h3>
+        <ul>
+            <li><strong>App Improvement</strong>: Anonymous usage data may be used to improve app performance and user experience</li>
+            <li><strong>Security</strong>: Rate limiting and input validation are implemented to prevent abuse</li>
+        </ul>
+
+        <h2>4. Data Storage and Security</h2>
+        
+        <h3>4.1 Local Storage</h3>
+        <ul>
+            <li>Game progress and settings are stored locally on your device using AsyncStorage</li>
+            <li>This data remains on your device and is not transmitted to our servers</li>
+            <li>You can clear this data through the app's settings</li>
+        </ul>
+
+        <h3>4.2 Cloud Storage</h3>
+        <ul>
+            <li>Leaderboard data (username, scores, statistics) is stored on Supabase, a secure cloud database</li>
+            <li>All data is encrypted in transit using HTTPS/TLS</li>
+            <li>Your username is the only personally identifiable information stored in the cloud</li>
+            <li>Row Level Security (RLS) policies are implemented to protect data integrity</li>
+        </ul>
+
+        <h3>4.3 Security Measures</h3>
+        <ul>
+            <li>Input validation and sanitization on all user inputs</li>
+            <li>Rate limiting to prevent API abuse</li>
+            <li>Environment variables for sensitive configuration (API keys)</li>
+            <li>Regular security audits of dependencies</li>
+            <li>No hardcoded credentials in the application code</li>
+        </ul>
+
+        <h2>5. Data Sharing and Disclosure</h2>
+        
+        <h3>5.1 Public Information</h3>
+        <ul>
+            <li>Your username, scores, best tiles, and games played are publicly visible on the leaderboard</li>
+            <li>This is the only information shared with other users</li>
+        </ul>
+
+        <h3>5.2 Third-Party Services</h3>
+        <ul>
+            <li><strong>Supabase</strong>: Used for leaderboard data storage. Supabase's privacy policy applies to data stored on their platform.</li>
+            <li><strong>Google Play</strong>: For app distribution and updates. Google's privacy policy applies.</li>
+        </ul>
+
+        <h3>5.3 We Do NOT Sell Your Data</h3>
+        <ul>
+            <li>We never sell, rent, or trade your personal information</li>
+            <li>We do not share your data with advertisers or third-party marketers</li>
+        </ul>
+
+        <h2>6. Data Retention</h2>
+        
+        <h3>6.1 Local Data</h3>
+        <ul>
+            <li>Game progress and settings are retained until you delete the app or clear app data</li>
+            <li>You can manually reset game data through the app settings</li>
+        </ul>
+
+        <h3>6.2 Leaderboard Data</h3>
+        <ul>
+            <li>Leaderboard entries are retained indefinitely unless you request deletion</li>
+            <li>You may request deletion of your leaderboard data at any time (see Section 7)</li>
+        </ul>
+
+        <h2>7. Your Rights and Choices</h2>
+        
+        <h3>7.1 Data Access</h3>
+        <ul>
+            <li>You can view your leaderboard profile and statistics within the app</li>
+            <li>Local game data can be accessed through the app settings</li>
+        </ul>
+
+        <h3>7.2 Data Deletion</h3>
+        <ul>
+            <li>You can delete your local game data through the app settings</li>
+            <li>To delete your leaderboard data, please contact us at the support email provided below</li>
+            <li>Upon deletion request, your username and associated scores will be removed from the leaderboard</li>
+        </ul>
+
+        <h3>7.3 Data Modification</h3>
+        <ul>
+            <li>You can change your username through the app settings</li>
+            <li>Game progress can be reset at any time</li>
+        </ul>
+
+        <h3>7.4 Opt-Out</h3>
+        <ul>
+            <li>You can choose not to register a username and still play the game offline</li>
+            <li>Leaderboard participation is optional</li>
+        </ul>
+
+        <h2>8. Children's Privacy</h2>
+        <ul>
+            <li>NumberMerge is suitable for users of all ages</li>
+            <li>We do not knowingly collect personal information from children under 13</li>
+            <li>If we become aware that we have collected such information, we will take steps to delete it</li>
+        </ul>
+
+        <h2>9. Changes to This Privacy Policy</h2>
+        <ul>
+            <li>We may update this Privacy Policy from time to time</li>
+            <li>Significant changes will be notified through app updates or in-app notifications</li>
+            <li>Your continued use of the app after changes constitutes acceptance of the updated policy</li>
+        </ul>
+
+        <h2>10. Contact Information</h2>
+        <p>If you have questions, concerns, or requests regarding this Privacy Policy or your personal data, please contact us through:</p>
+        <ul>
+            <li><strong>In-App Support</strong>: Use the support option in the app settings</li>
+            <li><strong>Email</strong>: <a href="mailto:zainisdrained@gmail.com">zainisdrained@gmail.com</a></li>
+            <li><strong>GitHub Issues</strong>: <a href="https://github.com/P3nguin152/numbermerge">https://github.com/P3nguin152/numbermerge</a></li>
+        </ul>
+
+        <h2>11. Legal Basis for Processing</h2>
+        <ul>
+            <li>For leaderboard functionality: Your consent (given when registering a username)</li>
+            <li>For local game storage: Legitimate interest (providing core app functionality)</li>
+            <li>For security measures: Legitimate interest (protecting the app and users)</li>
+        </ul>
+
+        <h2>12. International Data Transfers</h2>
+        <ul>
+            <li>Your leaderboard data may be stored on servers located outside your country</li>
+            <li>Supabase may process data in accordance with their data processing agreements</li>
+            <li>Appropriate safeguards are in place to protect your data during international transfers</li>
+        </ul>
+
+        <div class="effective-date">
+            <strong>Effective Date:</strong> April 12, 2026
+        </div>
+    </div>
+</body>
+</html>
