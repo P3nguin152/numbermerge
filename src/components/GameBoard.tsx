@@ -8,6 +8,8 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 import { useNavigation } from '@react-navigation/native';
 import Grid from './Grid';
 import TutorialOverlay from './TutorialOverlay';
@@ -25,7 +27,11 @@ import { updateStats, loadStats } from '../utils/statsStorage';
 import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
 import { loadSettings } from '../utils/settingsStorage';
+import { incrementExitCount } from '../utils/exitStorage';
 import { useUser } from '../contexts/UserContext';
+import { AdBanner, useAds } from '../contexts/AdContext';
+import { usePowerUps } from '../contexts/PowerUpsContext';
+import PowerUpsBar from './PowerUpsBar';
 import { leaderboardService } from '../services/leaderboardService';
 import { hasCompletedTutorial } from '../utils/tutorialStorage';
 
@@ -43,6 +49,16 @@ export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.
 function GameBoard() {
   const navigation = useNavigation();
   const { username } = useUser();
+  const { showRewarded, showInterstitial } = useAds();
+  const {
+    handleUndo,
+    saveStateForUndo,
+    handleShuffle,
+    handleRemoveTiles,
+    handleDoublePoints,
+    doublePointsActive,
+    resetDoublePoints,
+  } = usePowerUps();
   const [personalBest, setPersonalBest] = useState(0);
   const [gameState, setGameState] = useState<GameState>(() => ({
     grid: createEmptyGrid(),
@@ -58,6 +74,10 @@ function GameBoard() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNewBest, setShowNewBest] = useState(false);
   const [didBeatPersonalBest, setDidBeatPersonalBest] = useState(false);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [playAgainCount, setPlayAgainCount] = useState(0);
+  const [globalRank, setGlobalRank] = useState<number | null>(null);
+  const [lastScoreForRankFetch, setLastScoreForRankFetch] = useState(0);
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -76,7 +96,7 @@ function GameBoard() {
     });
 
     // Load saved game state if exists
-    loadGameState().then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile }) => {
+    loadGameState('classic').then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile }) => {
       if (savedState && !savedState.gameOver) {
         setGameState(savedState);
         setMerges(savedMerges);
@@ -96,6 +116,36 @@ function GameBoard() {
     };
   }, []);
 
+  // Fetch user's global rank whenever username changes
+  useEffect(() => {
+    if (username) {
+      leaderboardService.getPlayerRank(username).then(rank => {
+        setGlobalRank(rank);
+        setLastScoreForRankFetch(gameState.score);
+      }).catch(err => {
+        console.error('Failed to fetch rank:', err);
+        setGlobalRank(null);
+      });
+    } else {
+      setGlobalRank(null);
+    }
+  }, [username]);
+
+  // Fetch rank when score increases significantly
+  useEffect(() => {
+    if (username && !gameState.gameOver) {
+      const scoreDiff = gameState.score - lastScoreForRankFetch;
+      if (scoreDiff >= 100) {
+        leaderboardService.getPlayerRank(username).then(rank => {
+          setGlobalRank(rank);
+          setLastScoreForRankFetch(gameState.score);
+        }).catch(err => {
+          console.error('Failed to fetch rank:', err);
+        });
+      }
+    }
+  }, [username, gameState.score, gameState.gameOver]);
+
   // Animation values
   const scoreScale = useSharedValue(1);
   const nextBlockScale = useSharedValue(1);
@@ -104,6 +154,8 @@ function GameBoard() {
   const overlayScale = useSharedValue(0.8);
   const arrowScales = useRef(Array(GRID_COLS || 5).fill(0).map(() => useSharedValue(1))).current;
   const pauseButtonScale = useSharedValue(1);
+  const newBestOpacity = useSharedValue(0);
+  const newBestScale = useSharedValue(0.8);
 
   // Animate score when it changes
   useEffect(() => {
@@ -124,6 +176,17 @@ function GameBoard() {
       withTiming(0, { duration: 200 })
     );
   }, [gameState.nextTile]);
+
+  // Animate new best banner when it appears
+  useEffect(() => {
+    if (showNewBest) {
+      newBestOpacity.value = withSpring(1, { damping: 15, stiffness: 100 });
+      newBestScale.value = withSpring(1, { damping: 12, stiffness: 150 });
+    } else {
+      newBestOpacity.value = withSpring(0, { damping: 15, stiffness: 100 });
+      newBestScale.value = withSpring(0.8, { damping: 12, stiffness: 150 });
+    }
+  }, [showNewBest]);
 
   useEffect(() => {
     if (!gameState.gameOver && !isPaused) {
@@ -150,6 +213,9 @@ function GameBoard() {
 
   const handleColumnPress = useCallback((col: number) => {
     if (gameState.gameOver || isPaused) return;
+
+    // Save current state for undo before making a move
+    saveStateForUndo(gameState);
 
     // Animate arrow press
     arrowScales[col].value = withSequence(
@@ -186,7 +252,7 @@ function GameBoard() {
       return;
     }
 
-    const { grid: newGrid, score: moveScore } = dropTile(
+    const { grid: newGrid, score: moveScore, tripleMergeCount: _tripleMergeCount, totalMergeCount: _totalMergeCount } = dropTile(
       gameState.grid,
       gameState.nextTile,
       col
@@ -212,7 +278,7 @@ function GameBoard() {
       }
     }
 
-    const totalScore = gameState.score + moveScore;
+    const totalScore = gameState.score + moveScore * (doublePointsActive ? 2 : 1);
     const beatPersonalBest = totalScore > personalBest;
 
     // Play sound effects
@@ -229,7 +295,7 @@ function GameBoard() {
 
     if (gameOver) {
       // Clear saved game state so returning starts a new game
-      clearGameState();
+      clearGameState('classic');
 
       // Save stats when game ends
       updateStats(totalScore, merges + mergeCount, maxTile);
@@ -271,9 +337,20 @@ function GameBoard() {
     });
   }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest]);
 
-  const initializeGame = useCallback(() => {
+  const initializeGame = useCallback(async () => {
+    // Show interstitial ad if game was over and this is the 3rd play again
+    if (gameState.gameOver) {
+      const newCount = playAgainCount + 1;
+      if (newCount >= 3) {
+        showInterstitial();
+        setPlayAgainCount(0);
+      } else {
+        setPlayAgainCount(newCount);
+      }
+    }
+    
     // Clear saved game state when starting a new game
-    clearGameState();
+    clearGameState('classic');
     setGameState({
       grid: createEmptyGrid(),
       score: 0,
@@ -284,7 +361,8 @@ function GameBoard() {
     setBestTile(2);
     setDidBeatPersonalBest(false);
     setShowNewBest(false);
-  }, []);
+    resetDoublePoints();
+  }, [gameState.gameOver, showInterstitial, playAgainCount, resetDoublePoints]);
 
   const handlePausePress = useCallback(() => {
     pauseButtonScale.value = withSequence(
@@ -309,21 +387,73 @@ function GameBoard() {
     initializeGame();
   }, [initializeGame]);
 
-  const handleQuit = useCallback(() => {
+  const handleQuit = useCallback(async () => {
     // Save game state before quitting
     if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile);
+      saveGameState(gameState, merges, bestTile, 'classic');
     }
+    
+    // Track exit and show ad every 5th time
+    const exitCount = await incrementExitCount();
+    if (exitCount % 5 === 0) {
+      showInterstitial();
+    }
+    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile]);
+  }, [navigation, gameState, merges, bestTile, showInterstitial]);
 
-  const handleBackPress = useCallback(() => {
+  const handleUndoPress = useCallback(async () => {
+    const previousState = await handleUndo();
+    if (previousState !== null && previousState !== undefined) {
+      setGameState(previousState);
+    }
+  }, [handleUndo]);
+
+  const handleBackPress = useCallback(async () => {
     // Save game state before backing out
     if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile);
+      saveGameState(gameState, merges, bestTile, 'classic');
     }
+    
+    // Track exit and show ad every 5th time
+    const exitCount = await incrementExitCount();
+    if (exitCount % 5 === 0) {
+      showInterstitial();
+    }
+    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile]);
+  }, [navigation, gameState, merges, bestTile, showInterstitial]);
+
+  const handleWatchAdToContinue = useCallback(async () => {
+    setIsWatchingAd(true);
+    const { rewarded } = await showRewarded();
+    setIsWatchingAd(false);
+
+    // Proceed regardless of reward detection (test ads may not trigger rewards)
+    // Clear one row to allow player to continue
+    const newGrid = gameState.grid.map(row => [...row]);
+    // Find the row with the fewest tiles and clear it
+    let rowTileCounts = Array(GRID_ROWS).fill(0);
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        if (newGrid[row][col]) {
+          rowTileCounts[row]++;
+        }
+      }
+    }
+    const rowToClear = rowTileCounts.indexOf(Math.min(...rowTileCounts));
+    for (let col = 0; col < GRID_COLS; col++) {
+      newGrid[rowToClear][col] = null;
+    }
+
+    setGameState({
+      grid: newGrid,
+      score: gameState.score,
+      gameOver: false,
+      nextTile: generateNextValue(),
+    });
+    soundManager.playSound('resume');
+  }, [gameState, showRewarded]);
 
   const nextColor = useMemo(() => TILE_COLORS[gameState.nextTile]?.bg || '#3c3a32', [gameState.nextTile]);
 
@@ -338,6 +468,11 @@ function GameBoard() {
   const pauseButtonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pauseButtonScale.value }] as any,
   }), []);
+
+  const newBestAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: newBestOpacity.value,
+    transform: [{ scale: newBestScale.value }],
+  }));
 
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -358,12 +493,23 @@ function GameBoard() {
           accessibilityRole="button"
           accessibilityLabel="Back to home"
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Text style={styles.backIcon}>✕</Text>
         </TouchableOpacity>
 
-        <View style={styles.scoreChip} accessibilityRole="summary" accessibilityLabel={`Current score ${gameState.score}. Personal best ${personalBest}.`}>
-          <Text style={styles.scoreLabel}>SCORE</Text>
-          <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>{gameState.score}</Animated.Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>SCORE</Text>
+            <Animated.Text style={[styles.statValue, scoreAnimatedStyle]}>{gameState.score.toLocaleString()}</Animated.Text>
+          </View>
+          {globalRank !== null && (
+            <View style={styles.statDivider} />
+          )}
+          {globalRank !== null && (
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>RANK</Text>
+              <Text style={[styles.statValue, styles.rankValue]}>#{globalRank}</Text>
+            </View>
+          )}
         </View>
 
         <TouchableOpacity
@@ -373,7 +519,7 @@ function GameBoard() {
           accessibilityRole="button"
           accessibilityLabel={isPaused ? 'Resume game' : 'Pause game'}
         >
-          <Animated.Text style={[styles.pauseIcon, pauseButtonAnimatedStyle]}>⏸</Animated.Text>
+          <Animated.Text style={[styles.pauseIcon, pauseButtonAnimatedStyle]}>{isPaused ? '▶' : '⏸'}</Animated.Text>
         </TouchableOpacity>
       </View>
 
@@ -390,9 +536,9 @@ function GameBoard() {
       </View>
 
       {showNewBest && (
-        <View style={styles.newBestBanner} accessibilityLiveRegion="polite">
+        <AnimatedView style={[styles.newBestBanner, newBestAnimatedStyle]} accessibilityLiveRegion="polite">
           <Text style={styles.newBestText}>New Best! {gameState.score.toLocaleString()}</Text>
-        </View>
+        </AnimatedView>
       )}
 
       {/* Drop Arrows */}
@@ -420,6 +566,18 @@ function GameBoard() {
       <View style={styles.gridContainer}>
         <Grid grid={gameState.grid} onColumnPress={handleColumnPress} />
       </View>
+
+      <PowerUpsBar
+        isPaused={isPaused}
+        isGameOver={gameState.gameOver}
+        onUndo={handleUndoPress}
+        onShuffle={() => handleShuffle(gameState.grid, setGameState)}
+        onRemoveTiles={() => handleRemoveTiles(gameState.grid, setGameState)}
+        onDoublePoints={handleDoublePoints}
+      />
+
+      {/* Banner Ad */}
+      {!gameState.gameOver && !isPaused && <AdBanner />}
 
       {/* Game Over Overlay */}
       {gameState.gameOver && (
@@ -452,6 +610,18 @@ function GameBoard() {
             >
               <Text style={styles.overlayBtnText}>
                 {isSubmittingScore ? 'SUBMITTING...' : 'PLAY AGAIN'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.overlayBtnRewarded, isWatchingAd && styles.overlayBtnDisabled]}
+              onPress={handleWatchAdToContinue}
+              activeOpacity={0.85}
+              disabled={isWatchingAd}
+              accessibilityRole="button"
+              accessibilityLabel={isWatchingAd ? 'Loading ad' : 'Watch ad to continue'}
+            >
+              <Text style={styles.overlayBtnRewardedText}>
+                {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD TO CONTINUE'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -526,60 +696,74 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingTop: 52,
-    paddingBottom: Spacing.sm,
+    paddingTop: 56,
+    paddingBottom: Spacing.md,
     gap: Spacing.md,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    backgroundColor: Colors.card,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    width: 36,
+    height: 36,
+    backgroundColor: 'transparent',
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   backIcon: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
+    color: Colors.textSecondary,
+    fontSize: 24,
+    fontWeight: '300',
   },
-  scoreChip: {
+  statsRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.card,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    paddingVertical: 8,
     paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    gap: Spacing.lg,
+  },
+  statItem: {
+    flex: 1,
     alignItems: 'center',
   },
-  scoreLabel: {
+  statLabel: {
     color: Colors.textMuted,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    marginBottom: 2,
   },
-  scoreValue: {
-    color: Colors.warning,
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 2,
+  statValue: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.divider,
   },
   pauseBtn: {
-    width: 42,
-    height: 42,
-    backgroundColor: Colors.card,
-    borderRadius: 21,
-    borderWidth: 1,
+    width: 40,
+    height: 40,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pauseIcon: {
     color: Colors.textPrimary,
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  rankValue: {
+    color: Colors.primary,
   },
 
   // ── Next Strip ──
@@ -748,6 +932,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
   overlayBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  overlayBtnRewarded: {
+    width: '100%',
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.sm,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  overlayBtnRewardedText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '800',

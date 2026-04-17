@@ -239,8 +239,8 @@ This document provides detailed information about data collection, storage, and 
 For data-related inquiries, deletion requests, or security concerns:
 
 - **In-App**: Settings → Support
-- **Email**: [Support email to be added before publication]
-- **GitHub**: [Repository URL to be added before publication]
+- **Email**: zainisdrained@gmail.com
+- **GitHub**: https://github.com/P3nguin152/numbermerge
 
 ---
 

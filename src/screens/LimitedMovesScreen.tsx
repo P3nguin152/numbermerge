@@ -25,13 +25,16 @@ import { updateStats, loadStats } from '../utils/statsStorage';
 import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
 import { loadSettings } from '../utils/settingsStorage';
+import { incrementExitCount } from '../utils/exitStorage';
 import { useUser } from '../contexts/UserContext';
+import { AdBanner, useAds } from '../contexts/AdContext';
 import { leaderboardService } from '../services/leaderboardService';
 import { hasCompletedTutorial } from '../utils/tutorialStorage';
 
 import { Colors, TileColors as ThemeTileColors, Radius, Spacing } from '../theme/colors';
 
 const MAX_MOVES = 25;
+const MAX_MOVES_CAP = 40; // Max moves with bonuses
 
 export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.fromEntries(
   Object.entries(ThemeTileColors || {}).map(([k, v]) => {
@@ -45,6 +48,7 @@ export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.
 function LimitedMovesScreen() {
   const navigation = useNavigation();
   const { username } = useUser();
+  const { showRewarded, showInterstitial } = useAds();
   const [personalBest, setPersonalBest] = useState(0);
   const [movesRemaining, setMovesRemaining] = useState(MAX_MOVES);
   const [gameState, setGameState] = useState<GameState>(() => ({
@@ -61,6 +65,8 @@ function LimitedMovesScreen() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNewBest, setShowNewBest] = useState(false);
   const [didBeatPersonalBest, setDidBeatPersonalBest] = useState(false);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [moveBonus, setMoveBonus] = useState<{ value: number; x: number; y: number } | null>(null);
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -79,11 +85,14 @@ function LimitedMovesScreen() {
     });
 
     // Load saved game state if exists
-    loadGameState().then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile }) => {
+    loadGameState('limitedMoves').then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile, movesRemaining: savedMovesRemaining }) => {
       if (savedState && !savedState.gameOver) {
         setGameState(savedState);
         setMerges(savedMerges);
         setBestTile(savedBestTile);
+        if (savedMovesRemaining !== undefined) {
+          setMovesRemaining(savedMovesRemaining);
+        }
       }
     });
 
@@ -108,6 +117,8 @@ function LimitedMovesScreen() {
   const arrowScales = useRef(Array(GRID_COLS || 5).fill(0).map(() => useSharedValue(1))).current;
   const pauseButtonScale = useSharedValue(1);
   const movesScale = useSharedValue(1);
+  const bonusOpacity = useSharedValue(0);
+  const bonusTranslateY = useSharedValue(0);
 
   // Animate score when it changes
   useEffect(() => {
@@ -146,7 +157,7 @@ function LimitedMovesScreen() {
 
     overlayOpacity.value = withTiming(1, { duration: 220 });
     overlayScale.value = withSpring(1, { damping: 14, stiffness: 220 });
-  }, [gameState.gameOver, isPaused, overlayOpacity, overlayScale]);
+  }, [gameState.gameOver, isPaused]);
 
   useEffect(() => {
     if (!showNewBest) {
@@ -159,6 +170,22 @@ function LimitedMovesScreen() {
 
     return () => clearTimeout(timeout);
   }, [showNewBest]);
+
+  // Animate move bonus
+  useEffect(() => {
+    if (moveBonus) {
+      bonusOpacity.value = withTiming(1, { duration: 100 });
+      bonusTranslateY.value = withSequence(
+        withTiming(-50, { duration: 600, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 100 })
+      );
+      const timeout = setTimeout(() => {
+        setMoveBonus(null);
+        bonusOpacity.value = withTiming(0, { duration: 200 });
+      }, 800);
+      return () => clearTimeout(timeout);
+    }
+  }, [moveBonus, bonusOpacity, bonusTranslateY]);
 
   const handleColumnPress = useCallback((col: number) => {
     if (gameState.gameOver || isPaused || movesRemaining <= 0) return;
@@ -198,7 +225,7 @@ function LimitedMovesScreen() {
       return;
     }
 
-    const { grid: newGrid, score: moveScore } = dropTile(
+    const { grid: newGrid, score: moveScore, tripleMergeCount, totalMergeCount } = dropTile(
       gameState.grid,
       gameState.nextTile,
       col
@@ -206,7 +233,7 @@ function LimitedMovesScreen() {
     const gameOver = isGameOver(newGrid);
 
     // Track merges and best tile
-    let mergeCount = 0;
+    let mergeCount = totalMergeCount;
     let maxTile = bestTile;
     let maxMergeValue = 0;
 
@@ -216,12 +243,19 @@ function LimitedMovesScreen() {
         const tile = newGrid[row][c];
         if (tile) {
           if (tile.isMerged) {
-            mergeCount++;
             if (tile.value > maxMergeValue) maxMergeValue = tile.value;
           }
           if (tile.value > maxTile) maxTile = tile.value;
         }
       }
+    }
+
+    // Calculate move bonus: +1 per 2-tile merge, +3 per triple merge
+    const regularMerges = mergeCount - tripleMergeCount;
+    const moveBonusValue = regularMerges * 1 + tripleMergeCount * 3;
+    if (moveBonusValue > 0) {
+      setMovesRemaining(prev => Math.min(prev + moveBonusValue, MAX_MOVES_CAP));
+      setMoveBonus({ value: moveBonusValue, x: 0, y: 0 });
     }
 
     const totalScore = gameState.score + moveScore;
@@ -242,7 +276,7 @@ function LimitedMovesScreen() {
 
     if (gameOver || movesRemaining <= 1) {
       // Clear saved game state so returning starts a new game
-      clearGameState();
+      clearGameState('limitedMoves');
 
       // Save stats when game ends
       updateStats(totalScore, merges + mergeCount, maxTile);
@@ -292,9 +326,14 @@ function LimitedMovesScreen() {
     }
   }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest, showNewBest, movesRemaining]);
 
-  const initializeGame = useCallback(() => {
+  const initializeGame = useCallback(async () => {
+    // Show interstitial ad if game was over
+    if (gameState.gameOver) {
+      showInterstitial();
+    }
+    
     // Clear saved game state when starting a new game
-    clearGameState();
+    clearGameState('limitedMoves');
     setGameState({
       grid: createEmptyGrid(),
       score: 0,
@@ -306,7 +345,7 @@ function LimitedMovesScreen() {
     setMovesRemaining(MAX_MOVES);
     setDidBeatPersonalBest(false);
     setShowNewBest(false);
-  }, []);
+  }, [gameState.gameOver, showInterstitial]);
 
   const handlePausePress = useCallback(() => {
     pauseButtonScale.value = withSequence(
@@ -331,21 +370,58 @@ function LimitedMovesScreen() {
     initializeGame();
   }, [initializeGame]);
 
-  const handleQuit = useCallback(() => {
+  const handleQuit = useCallback(async () => {
     // Save game state before quitting
     if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile);
+      saveGameState(gameState, merges, bestTile, 'limitedMoves', undefined, movesRemaining);
     }
+    
+    // Track exit and show ad every 5th time
+    const exitCount = await incrementExitCount();
+    if (exitCount % 5 === 0) {
+      showInterstitial();
+    }
+    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile]);
+  }, [navigation, gameState, merges, bestTile, movesRemaining, showInterstitial]);
 
-  const handleBackPress = useCallback(() => {
+  const handleBackPress = useCallback(async () => {
     // Save game state before backing out
     if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile);
+      saveGameState(gameState, merges, bestTile, 'limitedMoves', undefined, movesRemaining);
     }
+    
+    // Track exit and show ad every 5th time
+    const exitCount = await incrementExitCount();
+    if (exitCount % 5 === 0) {
+      showInterstitial();
+    }
+    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile]);
+  }, [navigation, gameState, merges, bestTile, movesRemaining, showInterstitial]);
+
+  const handleWatchAdToContinue = useCallback(async () => {
+    setIsWatchingAd(true);
+    const { rewarded } = await showRewarded();
+    setIsWatchingAd(false);
+
+    // Proceed regardless of reward detection (test ads may not trigger rewards)
+    // Add 5 moves to continue playing
+    setMovesRemaining(prev => prev + 5);
+    
+    // Check if grid can continue before resetting game over
+    const canContinue = gameState.grid.some(row => 
+      row.some(tile => tile === null || tile === undefined)
+    );
+    
+    if (canContinue) {
+      setGameState(prev => ({ ...prev, gameOver: false }));
+      soundManager.playSound('resume');
+    } else {
+      // Grid is full, cannot continue even with more moves
+      soundManager.playSound('gameOver');
+    }
+  }, [showRewarded, gameState.grid]);
 
   const nextColor = useMemo(() => TILE_COLORS[gameState.nextTile]?.bg || '#3c3a32', [gameState.nextTile]);
 
@@ -364,6 +440,11 @@ function LimitedMovesScreen() {
   const movesAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: movesScale.value }] as any,
   }), []);
+
+  const bonusAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: bonusOpacity.value,
+    transform: [{ translateY: bonusTranslateY.value }],
+  }));
 
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -399,6 +480,11 @@ function LimitedMovesScreen() {
             <Animated.Text style={[styles.movesValue, isMovesRunningLow && styles.movesValueLow, movesAnimatedStyle]}>
               {movesRemaining}
             </Animated.Text>
+            {moveBonus && (
+              <Animated.View style={[styles.moveBonusContainer, bonusAnimatedStyle]}>
+                <Text style={styles.moveBonusText}>+{moveBonus.value}</Text>
+              </Animated.View>
+            )}
           </View>
         </View>
 
@@ -458,6 +544,9 @@ function LimitedMovesScreen() {
         <Grid grid={gameState.grid} onColumnPress={handleColumnPress} />
       </View>
 
+      {/* Banner Ad */}
+      {!gameState.gameOver && !isPaused && <AdBanner />}
+
       {/* Game Over Overlay */}
       {gameState.gameOver && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
@@ -489,6 +578,18 @@ function LimitedMovesScreen() {
             >
               <Text style={styles.overlayBtnText}>
                 {isSubmittingScore ? 'SUBMITTING...' : 'PLAY AGAIN'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.overlayBtnRewarded, isWatchingAd && styles.overlayBtnDisabled]}
+              onPress={handleWatchAdToContinue}
+              activeOpacity={0.85}
+              disabled={isWatchingAd}
+              accessibilityRole="button"
+              accessibilityLabel={isWatchingAd ? 'Loading ad' : 'Watch ad to continue'}
+            >
+              <Text style={styles.overlayBtnRewardedText}>
+                {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD FOR +5 MOVES'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -638,6 +739,19 @@ const styles = StyleSheet.create({
   },
   movesValueLow: {
     color: Colors.danger,
+  },
+  moveBonusContainer: {
+    position: 'absolute',
+    top: -20,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  moveBonusText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
   },
   pauseBtn: {
     width: 42,
@@ -826,6 +940,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
   overlayBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  overlayBtnRewarded: {
+    width: '100%',
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.sm,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  overlayBtnRewardedText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '800',

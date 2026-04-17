@@ -5,4 +5,7 @@ web-build/
 *.log
 .env
 .env.local
+*.jks
+*.keystore
+**/gradle.properties
 

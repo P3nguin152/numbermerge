@@ -23,7 +23,7 @@ function Tile({ tile }: TileProps) {
 
   React.useEffect(() => {
     if (tile.isFalling) {
-      translateYValue.setValue(-80);
+      translateYValue.setValue(-600);
       Animated.parallel([
         Animated.spring(scaleValue, {
           toValue: 1,

@@ -10,7 +10,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import Grid from '../components/Grid';
-import TutorialOverlay from '../components/TutorialOverlay';
 import { GameState } from '../types/game';
 import {
   createEmptyGrid,
@@ -25,13 +24,17 @@ import { updateStats, loadStats } from '../utils/statsStorage';
 import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
 import { loadSettings } from '../utils/settingsStorage';
+import { incrementExitCount } from '../utils/exitStorage';
 import { useUser } from '../contexts/UserContext';
+import { AdBanner, useAds } from '../contexts/AdContext';
 import { leaderboardService } from '../services/leaderboardService';
-import { hasCompletedTutorial } from '../utils/tutorialStorage';
+import { hasCompletedTutorial, hasCompletedTimeAttackTutorial } from '../utils/tutorialStorage';
+import TimeAttackTutorialOverlay from '../components/TimeAttackTutorialOverlay';
 
 import { Colors, TileColors as ThemeTileColors, Radius, Spacing } from '../theme/colors';
 
 const TIME_ATTACK_DURATION = 120; // 2 minutes in seconds
+const MAX_TIME = 180; // 3 minutes max with bonuses
 
 export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.fromEntries(
   Object.entries(ThemeTileColors || {}).map(([k, v]) => {
@@ -45,6 +48,7 @@ export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.
 function TimeAttackScreen() {
   const navigation = useNavigation();
   const { username } = useUser();
+  const { showRewarded, showInterstitial } = useAds();
   const [personalBest, setPersonalBest] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(TIME_ATTACK_DURATION);
   const [gameState, setGameState] = useState<GameState>(() => ({
@@ -61,6 +65,9 @@ function TimeAttackScreen() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNewBest, setShowNewBest] = useState(false);
   const [didBeatPersonalBest, setDidBeatPersonalBest] = useState(false);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [playAgainCount, setPlayAgainCount] = useState(0);
+  const [timeBonus, setTimeBonus] = useState<{ value: number; x: number; y: number } | null>(null);
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -79,16 +86,19 @@ function TimeAttackScreen() {
     });
 
     // Load saved game state if exists
-    loadGameState().then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile }) => {
+    loadGameState('timeAttack').then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile, timeRemaining: savedTimeRemaining }) => {
       if (savedState && !savedState.gameOver) {
         setGameState(savedState);
         setMerges(savedMerges);
         setBestTile(savedBestTile);
+        if (savedTimeRemaining !== undefined) {
+          setTimeRemaining(savedTimeRemaining);
+        }
       }
     });
 
     // Check if tutorial should be shown
-    hasCompletedTutorial().then((completed: boolean) => {
+    hasCompletedTimeAttackTutorial().then((completed: boolean) => {
       if (!completed) {
         setShowTutorial(true);
       }
@@ -128,6 +138,8 @@ function TimeAttackScreen() {
   const arrowScales = useRef(Array(GRID_COLS || 5).fill(0).map(() => useSharedValue(1))).current;
   const pauseButtonScale = useSharedValue(1);
   const timerScale = useSharedValue(1);
+  const bonusOpacity = useSharedValue(0);
+  const bonusTranslateY = useSharedValue(0);
 
   // Animate score when it changes
   useEffect(() => {
@@ -166,7 +178,7 @@ function TimeAttackScreen() {
 
     overlayOpacity.value = withTiming(1, { duration: 220 });
     overlayScale.value = withSpring(1, { damping: 14, stiffness: 220 });
-  }, [gameState.gameOver, isPaused, overlayOpacity, overlayScale]);
+  }, [gameState.gameOver, isPaused]);
 
   useEffect(() => {
     if (!showNewBest) {
@@ -179,6 +191,22 @@ function TimeAttackScreen() {
 
     return () => clearTimeout(timeout);
   }, [showNewBest]);
+
+  // Animate time bonus
+  useEffect(() => {
+    if (timeBonus) {
+      bonusOpacity.value = withTiming(1, { duration: 100 });
+      bonusTranslateY.value = withSequence(
+        withTiming(-50, { duration: 600, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 100 })
+      );
+      const timeout = setTimeout(() => {
+        setTimeBonus(null);
+        bonusOpacity.value = withTiming(0, { duration: 200 });
+      }, 800);
+      return () => clearTimeout(timeout);
+    }
+  }, [timeBonus, bonusOpacity, bonusTranslateY]);
 
   const handleColumnPress = useCallback((col: number) => {
     if (gameState.gameOver || isPaused) return;
@@ -218,7 +246,7 @@ function TimeAttackScreen() {
       return;
     }
 
-    const { grid: newGrid, score: moveScore } = dropTile(
+    const { grid: newGrid, score: moveScore, tripleMergeCount, totalMergeCount } = dropTile(
       gameState.grid,
       gameState.nextTile,
       col
@@ -226,7 +254,7 @@ function TimeAttackScreen() {
     const gameOver = isGameOver(newGrid);
 
     // Track merges and best tile
-    let mergeCount = 0;
+    let mergeCount = totalMergeCount;
     let maxTile = bestTile;
     let maxMergeValue = 0;
 
@@ -236,12 +264,20 @@ function TimeAttackScreen() {
         const tile = newGrid[row][c];
         if (tile) {
           if (tile.isMerged) {
-            mergeCount++;
             if (tile.value > maxMergeValue) maxMergeValue = tile.value;
           }
           if (tile.value > maxTile) maxTile = tile.value;
         }
       }
+    }
+
+    // Calculate time bonus: +1s per 2-tile merge, +3s per triple merge
+    const regularMerges = mergeCount - tripleMergeCount;
+    const timeBonusValue = regularMerges * 1 + tripleMergeCount * 3;
+    if (timeBonusValue > 0) {
+      setTimeRemaining(prev => Math.min(prev + timeBonusValue, MAX_TIME));
+      // Show bonus animation near the timer
+      setTimeBonus({ value: timeBonusValue, x: 0, y: 0 });
     }
 
     const totalScore = gameState.score + moveScore;
@@ -261,7 +297,7 @@ function TimeAttackScreen() {
 
     if (gameOver) {
       // Clear saved game state so returning starts a new game
-      clearGameState();
+      clearGameState('timeAttack');
 
       // Save stats when game ends
       updateStats(totalScore, merges + mergeCount, maxTile);
@@ -303,9 +339,20 @@ function TimeAttackScreen() {
     });
   }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest, showNewBest]);
 
-  const initializeGame = useCallback(() => {
+  const initializeGame = useCallback(async () => {
+    // Show interstitial ad if game was over and this is the 3rd play again
+    if (gameState.gameOver) {
+      const newCount = playAgainCount + 1;
+      if (newCount >= 3) {
+        showInterstitial();
+        setPlayAgainCount(0);
+      } else {
+        setPlayAgainCount(newCount);
+      }
+    }
+    
     // Clear saved game state when starting a new game
-    clearGameState();
+    clearGameState('timeAttack');
     setGameState({
       grid: createEmptyGrid(),
       score: 0,
@@ -317,7 +364,7 @@ function TimeAttackScreen() {
     setTimeRemaining(TIME_ATTACK_DURATION);
     setDidBeatPersonalBest(false);
     setShowNewBest(false);
-  }, []);
+  }, [gameState.gameOver, showInterstitial, playAgainCount]);
 
   const handlePausePress = useCallback(() => {
     pauseButtonScale.value = withSequence(
@@ -342,21 +389,58 @@ function TimeAttackScreen() {
     initializeGame();
   }, [initializeGame]);
 
-  const handleQuit = useCallback(() => {
+  const handleQuit = useCallback(async () => {
     // Save game state before quitting
     if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile);
+      saveGameState(gameState, merges, bestTile, 'timeAttack', timeRemaining);
     }
+    
+    // Track exit and show ad every 5th time
+    const exitCount = await incrementExitCount();
+    if (exitCount % 5 === 0) {
+      showInterstitial();
+    }
+    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile]);
+  }, [navigation, gameState, merges, bestTile, timeRemaining, showInterstitial]);
 
-  const handleBackPress = useCallback(() => {
+  const handleBackPress = useCallback(async () => {
     // Save game state before backing out
     if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile);
+      saveGameState(gameState, merges, bestTile, 'timeAttack', timeRemaining);
     }
+    
+    // Track exit and show ad every 5th time
+    const exitCount = await incrementExitCount();
+    if (exitCount % 5 === 0) {
+      showInterstitial();
+    }
+    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile]);
+  }, [navigation, gameState, merges, bestTile, timeRemaining, showInterstitial]);
+
+  const handleWatchAdToContinue = useCallback(async () => {
+    setIsWatchingAd(true);
+    const { rewarded } = await showRewarded();
+    setIsWatchingAd(false);
+
+    // Proceed regardless of reward detection (test ads may not trigger rewards)
+    // Add 30 seconds to continue playing
+    setTimeRemaining(prev => Math.max(prev + 30, 30));
+    
+    // Check if grid can continue before resetting game over
+    const canContinue = gameState.grid.some(row => 
+      row.some(tile => tile === null || tile === undefined)
+    );
+    
+    if (canContinue) {
+      setGameState(prev => ({ ...prev, gameOver: false }));
+      soundManager.playSound('resume');
+    } else {
+      // Grid is full, cannot continue even with more time
+      soundManager.playSound('gameOver');
+    }
+  }, [showRewarded, gameState.grid]);
 
   const nextColor = useMemo(() => TILE_COLORS[gameState.nextTile]?.bg || '#3c3a32', [gameState.nextTile]);
 
@@ -376,13 +460,18 @@ function TimeAttackScreen() {
     transform: [{ scale: timerScale.value }] as any,
   }), []);
 
+  const bonusAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: bonusOpacity.value,
+    transform: [{ translateY: bonusTranslateY.value }],
+  }));
+
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
-  }), []);
+  }));
 
   const overlayCardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: overlayScale.value }] as any,
-  }), []);
+    transform: [{ scale: overlayScale.value }],
+  }));
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -416,6 +505,11 @@ function TimeAttackScreen() {
             <Animated.Text style={[styles.timerValue, isTimeRunningLow && styles.timerValueLow, timerAnimatedStyle]}>
               {formatTime(timeRemaining)}
             </Animated.Text>
+            {timeBonus && (
+              <Animated.View style={[styles.timeBonusContainer, bonusAnimatedStyle]}>
+                <Text style={styles.timeBonusText}>+{timeBonus.value}s</Text>
+              </Animated.View>
+            )}
           </View>
         </View>
 
@@ -474,6 +568,9 @@ function TimeAttackScreen() {
         <Grid grid={gameState.grid} onColumnPress={handleColumnPress} />
       </View>
 
+      {/* Banner Ad */}
+      {!gameState.gameOver && !isPaused && <AdBanner />}
+
       {/* Game Over Overlay */}
       {gameState.gameOver && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
@@ -505,6 +602,18 @@ function TimeAttackScreen() {
             >
               <Text style={styles.overlayBtnText}>
                 {isSubmittingScore ? 'SUBMITTING...' : 'PLAY AGAIN'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.overlayBtnRewarded, isWatchingAd && styles.overlayBtnDisabled]}
+              onPress={handleWatchAdToContinue}
+              activeOpacity={0.85}
+              disabled={isWatchingAd}
+              accessibilityRole="button"
+              accessibilityLabel={isWatchingAd ? 'Loading ad' : 'Watch ad to continue'}
+            >
+              <Text style={styles.overlayBtnRewardedText}>
+                {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD FOR +30s'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -558,7 +667,7 @@ function TimeAttackScreen() {
       )}
 
       {/* Tutorial Overlay */}
-      <TutorialOverlay
+      <TimeAttackTutorialOverlay
         visible={showTutorial && !isPaused && !gameState.gameOver}
         onClose={() => setShowTutorial(false)}
       />
@@ -654,6 +763,19 @@ const styles = StyleSheet.create({
   },
   timerValueLow: {
     color: Colors.danger,
+  },
+  timeBonusContainer: {
+    position: 'absolute',
+    top: -20,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  timeBonusText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
   },
   pauseBtn: {
     width: 42,
@@ -836,6 +958,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
   overlayBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  overlayBtnRewarded: {
+    width: '100%',
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.sm,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  overlayBtnRewardedText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '800',

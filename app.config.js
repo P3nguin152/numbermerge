@@ -1,10 +1,15 @@
+import 'dotenv/config';
+
 export default {
   expo: {
     name: 'numbermerger',
     slug: 'numbermerger',
     version: '1.0.0',
     android: {
-      package: 'com.numbermerge.game',
+      package: 'com.numbermerge.puzzle',
+    },
+    ios: {
+      bundleIdentifier: 'com.numbermerge.puzzle',
     },
     extra: {
       SUPABASE_URL: process.env.SUPABASE_URL,

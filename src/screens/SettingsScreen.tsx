@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { loadSettings, updateSetting, GameSettings } from '../utils/settingsStorage';
 import { soundManager } from '../utils/soundManager';
 import { clearGameState } from '../utils/gameStorage';
 import { clearStats } from '../utils/statsStorage';
 import { Colors, Radius, Spacing } from '../theme/colors';
+import { BOARD_THEMES } from '../theme/boardThemes';
+import { useBoardTheme } from '../contexts/BoardThemeContext';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
+  const { boardTheme, setBoardTheme } = useBoardTheme();
   const [settings, setSettings] = useState<GameSettings>({
     soundEnabled: true,
     musicEnabled: true,
     vibrationEnabled: true,
     theme: 'dark',
+    boardTheme: 'midnight',
   });
 
   useEffect(() => {
@@ -71,6 +75,22 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleRateApp = async () => {
+    const packageName = 'com.numbermerge.puzzle';
+    const url = `market://details?id=${packageName}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Google Play Store.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open Google Play Store.');
+    }
   };
 
   return (
@@ -140,7 +160,44 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Theme Section */}
+        {/* Board Theme Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>BOARD THEME</Text>
+          <View style={styles.themeGrid}>
+            {BOARD_THEMES.map(theme => {
+              const isActive = boardTheme.id === theme.id;
+              return (
+                <TouchableOpacity
+                  key={theme.id}
+                  style={[
+                    styles.themeCard,
+                    isActive && styles.themeCardActive,
+                    isActive && { borderColor: Colors.primary },
+                  ]}
+                  onPress={() => setBoardTheme(theme.id)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.themeSwatch, { backgroundColor: theme.boardBg, borderColor: theme.boardBorder }]}>
+                    {isActive && (
+                      <View style={styles.themeSwatchCheck}>
+                        <Text style={styles.themeSwatchCheckIcon}>✓</Text>
+                      </View>
+                    )}
+                    <View style={styles.themeSwatchDots}>
+                      {[0, 1, 2].map(i => (
+                        <View key={i} style={[styles.themeSwatchDot, { backgroundColor: theme.patternColor }]} />
+                      ))}
+                    </View>
+                  </View>
+                  <Text style={styles.themeEmoji}>{theme.emoji}</Text>
+                  <Text style={[styles.themeName, isActive && { color: Colors.primary }]}>{theme.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* App Theme Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>APPEARANCE</Text>
           
@@ -218,7 +275,7 @@ export default function SettingsScreen() {
               </View>
               <Text style={styles.versionText}>1.0.0</Text>
             </View>
-            <TouchableOpacity style={styles.cardItem} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.cardItem} activeOpacity={0.7} onPress={handleRateApp}>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Rate the App</Text>
                 <Text style={styles.cardItemSubtitle}>Share your feedback</Text>
@@ -347,6 +404,68 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 24,
     fontWeight: '300',
+  },
+  themeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  themeCard: {
+    width: '22%',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: Radius.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: 2,
+  },
+  themeCardActive: {
+    backgroundColor: Colors.primaryDim,
+  },
+  themeSwatch: {
+    width: 52,
+    height: 52,
+    borderRadius: Radius.sm,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  themeSwatchCheck: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeSwatchCheckIcon: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  themeSwatchDots: {
+    flexDirection: 'row',
+    gap: 3,
+    marginTop: 20,
+  },
+  themeSwatchDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  themeEmoji: {
+    fontSize: 14,
+  },
+  themeName: {
+    color: Colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   themePreview: {
     width: 42,

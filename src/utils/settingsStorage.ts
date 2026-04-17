@@ -7,6 +7,7 @@ export interface GameSettings {
   musicEnabled: boolean;
   vibrationEnabled: boolean;
   theme: 'dark' | 'light';
+  boardTheme: string;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   musicEnabled: true,
   vibrationEnabled: true,
   theme: 'dark',
+  boardTheme: 'midnight',
 };
 
 export async function loadSettings(): Promise<GameSettings> {

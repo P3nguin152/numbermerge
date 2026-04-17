@@ -34,16 +34,17 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
+            <Text style={styles.appName}>NumberMerge</Text>
             <Text style={styles.welcomeText}>
-              {username ? `Hey, ${username}` : 'Welcome back'}
+              {username ? `Hey, ${username} 👋` : 'Welcome back 👋'}
             </Text>
-            <Text style={styles.subHeaderText}>Ready to crush some numbers?</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile' as never)}
             activeOpacity={0.7}
@@ -54,130 +55,117 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Logo Section */}
-        <View style={styles.logoSection}>
-          <View style={styles.logoOuter}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>N</Text>
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillEmoji}>👑</Text>
+            <View>
+              <Text style={styles.statPillValue}>{stats.highScore.toLocaleString()}</Text>
+              <Text style={styles.statPillLabel}>Best Score</Text>
             </View>
           </View>
-          <Text style={styles.appTitle}>NumberMerger</Text>
-          <Text style={styles.appSubtitle}>Merge · Combo · Dominate</Text>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillEmoji}>🎮</Text>
+            <View>
+              <Text style={[styles.statPillValue, { color: Colors.accent }]}>{stats.gamesPlayed}</Text>
+              <Text style={styles.statPillLabel}>Games Played</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Play Button */}
-        <TouchableOpacity 
-          style={styles.playButton}
+        {/* Leaderboard Banner */}
+        <TouchableOpacity
+          style={styles.leaderboardBanner}
+          onPress={() => navigation.navigate('Leaderboard' as never)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.leaderboardLeft}>
+            <Text style={styles.leaderboardEmoji}>🏆</Text>
+            <View>
+              <Text style={styles.leaderboardTitle}>Leaderboard</Text>
+              <Text style={styles.leaderboardSub}>See how you rank globally</Text>
+            </View>
+          </View>
+          <Text style={styles.leaderboardChevron}>›</Text>
+        </TouchableOpacity>
+
+        {/* Game Modes */}
+        <Text style={styles.sectionTitle}>CHOOSE YOUR MODE</Text>
+
+        <TouchableOpacity
+          style={styles.gameModeCardFeatured}
           onPress={() => navigation.navigate('Game' as never)}
           activeOpacity={0.85}
         >
-          <View style={styles.playButtonInner}>
-            <Text style={styles.playIcon}>▶</Text>
-            <Text style={styles.playButtonText}>PLAY NOW</Text>
+          <View style={[styles.gameModeAccent, { backgroundColor: Colors.primary }]} />
+          <View style={styles.gameModeIconBox}>
+            <Text style={styles.gameModeIcon}>🎯</Text>
           </View>
+          <View style={styles.gameModeContent}>
+            <View style={styles.gameModeTitleRow}>
+              <Text style={styles.gameModeTitle}>Classic</Text>
+              <View style={styles.gameModeBadge}><Text style={styles.gameModeBadgeText}>POPULAR</Text></View>
+            </View>
+            <Text style={styles.gameModeSubtitle}>Endless gameplay · No limits · High score chase</Text>
+          </View>
+          <Text style={styles.gameModeChevron}>›</Text>
         </TouchableOpacity>
 
-        {/* Stats Preview */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsHeader}>YOUR STATS</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statEmoji}>👑</Text>
-              <Text style={styles.statValueAccent}>{stats.highScore.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>High Score</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statEmoji}>🎮</Text>
-              <Text style={styles.statValuePrimary}>{stats.gamesPlayed}</Text>
-              <Text style={styles.statLabel}>Games</Text>
-            </View>
-          </View>
+        <View style={styles.gameModeRow}>
+          <TouchableOpacity
+            style={styles.gameModeCardHalf}
+            onPress={() => navigation.navigate('LimitedMoves' as never)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.gameModeAccentHalf, { backgroundColor: Colors.accent }]} />
+            <Text style={styles.gameModeIconLarge}>⚡</Text>
+            <Text style={styles.gameModeTitleHalf}>Limited{'\n'}Moves</Text>
+            <Text style={styles.gameModeSubtitleHalf}>25 moves to score big</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.gameModeCardHalf}
+            onPress={() => navigation.navigate('TimeAttack' as never)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.gameModeAccentHalf, { backgroundColor: Colors.gold }]} />
+            <Text style={styles.gameModeIconLarge}>⏱️</Text>
+            <Text style={styles.gameModeTitleHalf}>Time{'\n'}Attack</Text>
+            <Text style={styles.gameModeSubtitleHalf}>Race against 2 minutes</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Menu Options */}
-        <View style={styles.menuOptions}>
-          <TouchableOpacity 
-            style={styles.menuItem}
+        {/* Quick Links */}
+        <Text style={styles.sectionTitle}>MORE</Text>
+        <View style={styles.quickLinks}>
+          <TouchableOpacity
+            style={styles.quickLinkItem}
             onPress={() => navigation.navigate('HowToPlay' as never)}
             activeOpacity={0.7}
           >
-            <View style={[styles.menuIconBox, { backgroundColor: Colors.primaryDim }]}>
-              <Text style={styles.menuIcon}>📖</Text>
+            <View style={[styles.quickLinkIcon, { backgroundColor: Colors.primaryDim }]}>
+              <Text style={styles.quickLinkEmoji}>📖</Text>
             </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>How to Play</Text>
-              <Text style={styles.menuSubtitle}>Learn the basics</Text>
-            </View>
-            <Text style={styles.menuChevron}>›</Text>
+            <Text style={styles.quickLinkLabel}>How to Play</Text>
+            <Text style={styles.quickLinkChevron}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.menuItem}
+          <View style={styles.quickLinkDivider} />
+
+          <TouchableOpacity
+            style={styles.quickLinkItem}
             onPress={() => navigation.navigate('Settings' as never)}
             activeOpacity={0.7}
           >
-            <View style={[styles.menuIconBox, { backgroundColor: Colors.accentDim }]}>
-              <Text style={styles.menuIcon}>⚙️</Text>
+            <View style={[styles.quickLinkIcon, { backgroundColor: Colors.accentDim }]}>
+              <Text style={styles.quickLinkEmoji}>⚙️</Text>
             </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Settings</Text>
-              <Text style={styles.menuSubtitle}>Customize your experience</Text>
-            </View>
-            <Text style={styles.menuChevron}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('Leaderboard' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: Colors.goldDim }]}>
-              <Text style={styles.menuIcon}>🏆</Text>
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Leaderboard</Text>
-              <Text style={styles.menuSubtitle}>View global rankings</Text>
-            </View>
-            <Text style={styles.menuChevron}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('GameModeSelection' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: Colors.primaryDim }]}>
-              <Text style={styles.menuIcon}>🎮</Text>
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Game Modes</Text>
-              <Text style={styles.menuSubtitle}>Time Attack, Limited Moves</Text>
-            </View>
-            <Text style={styles.menuChevron}>›</Text>
+            <Text style={styles.quickLinkLabel}>Settings</Text>
+            <Text style={styles.quickLinkChevron}>›</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Daily Challenge Banner */}
-        <TouchableOpacity 
-          style={styles.dailyBanner} 
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('DailyChallenge' as never)}
-        >
-          <View style={styles.dailyGlow} />
-          <View style={styles.dailyIconBox}>
-            <Text style={styles.dailyIcon}>📅</Text>
-          </View>
-          <View style={styles.dailyContent}>
-            <Text style={styles.dailyTitle}>Daily Challenge</Text>
-            <Text style={styles.dailySubtitle}>New puzzle available</Text>
-          </View>
-          <View style={styles.dailyArrowBox}>
-            <Text style={styles.dailyArrow}>▶</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
+        <View style={{ height: 48 }} />
       </ScrollView>
 
       <UsernameModal
@@ -195,276 +183,288 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: Spacing.xxl,
-    paddingTop: 60,
+    paddingTop: 64,
+    paddingBottom: 48,
   },
 
   // ── Header ──
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xxxl,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xxl,
   },
   headerLeft: {
     flex: 1,
   },
+  appName: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
   welcomeText: {
     color: Colors.textPrimary,
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  subHeaderText: {
-    color: Colors.textMuted,
-    fontSize: 14,
-    marginTop: 6,
-  },
   profileButton: {
     marginLeft: Spacing.md,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   profileRing: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
     borderColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surface,
   },
   profileIcon: {
-    fontSize: 22,
+    fontSize: 28,
   },
 
-  // ── Logo ──
-  logoSection: {
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 40,
-  },
-  logoOuter: {
-    width: 120,
-    height: 120,
-    borderRadius: Radius.xl,
-    backgroundColor: Colors.primaryDim,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xxl,
-  },
-  logoContainer: {
-    width: 96,
-    height: 96,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 48,
-    fontWeight: '900',
-  },
-  appTitle: {
-    color: Colors.textPrimary,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -1,
-    marginBottom: 8,
-  },
-  appSubtitle: {
-    color: Colors.textMuted,
-    fontSize: 15,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-
-  // ── Play Button ──
-  playButton: {
-    backgroundColor: Colors.accent,
-    borderRadius: Radius.md,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginBottom: Spacing.xxl,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  playButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  playIcon: {
-    color: '#fff',
-    fontSize: 22,
-  },
-  playButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 3,
-  },
-
-  // ── Stats ──
-  statsCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xxl,
-  },
-  statsHeader: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginBottom: Spacing.lg,
-  },
+  // ── Stats Row ──
   statsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statEmoji: {
-    fontSize: 22,
-    marginBottom: 6,
-  },
-  statValueAccent: {
-    color: Colors.primary,
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  statValuePrimary: {
-    color: Colors.accent,
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  statLabel: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: Colors.divider,
-  },
-
-  // ── Menu ──
-  menuOptions: {
     gap: Spacing.md,
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.lg,
   },
-  menuItem: {
+  statPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     backgroundColor: Colors.card,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 14,
+  },
+  statPillEmoji: {
+    fontSize: 22,
+  },
+  statPillValue: {
+    color: Colors.primary,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  statPillLabel: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+
+  // ── Leaderboard Banner ──
+  leaderboardBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.25)',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 16,
+    marginBottom: Spacing.xxl,
+  },
+  leaderboardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
   },
-  menuIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+  leaderboardEmoji: {
+    fontSize: 28,
   },
-  menuIcon: {
-    fontSize: 22,
+  leaderboardTitle: {
+    color: Colors.gold,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  menuContent: {
-    flex: 1,
-  },
-  menuTitle: {
-    color: Colors.textPrimary,
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  menuSubtitle: {
+  leaderboardSub: {
     color: Colors.textMuted,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: 2,
   },
-  menuChevron: {
-    color: Colors.textMuted,
-    fontSize: 24,
+  leaderboardChevron: {
+    color: Colors.gold,
+    fontSize: 26,
     fontWeight: '300',
   },
 
-  // ── Daily Banner ──
-  dailyBanner: {
-    backgroundColor: Colors.primary,
+  // ── Section Title ──
+  sectionTitle: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: Spacing.md,
+  },
+
+  // ── Featured Game Mode Card ──
+  gameModeCardFeatured: {
+    backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
     overflow: 'hidden',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 10,
+    marginBottom: Spacing.md,
+    paddingRight: Spacing.lg,
+    paddingVertical: 18,
   },
-  dailyGlow: {
-    position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  gameModeAccent: {
+    width: 4,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    marginRight: Spacing.lg,
+    marginLeft: 0,
   },
-  dailyIconBox: {
+  gameModeIconBox: {
     width: 50,
     height: 50,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: Colors.primaryDim,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  gameModeIcon: {
+    fontSize: 24,
+  },
+  gameModeContent: {
+    flex: 1,
+  },
+  gameModeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 3,
+  },
+  gameModeTitle: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  gameModeBadge: {
+    backgroundColor: Colors.primaryDim,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  gameModeBadgeText: {
+    color: Colors.primary,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  gameModeSubtitle: {
+    color: Colors.textMuted,
+    fontSize: 12,
+  },
+  gameModeChevron: {
+    color: Colors.textMuted,
+    fontSize: 26,
+    fontWeight: '300',
+    marginLeft: Spacing.sm,
+  },
+
+  // ── Half-width Game Mode Cards ──
+  gameModeRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.xxl,
+  },
+  gameModeCardHalf: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    overflow: 'hidden',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    paddingTop: 0,
+  },
+  gameModeAccentHalf: {
+    height: 4,
+    borderRadius: 2,
+    marginBottom: Spacing.lg,
+  },
+  gameModeIconLarge: {
+    fontSize: 30,
+    marginBottom: 8,
+  },
+  gameModeTitleHalf: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  gameModeSubtitleHalf: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+
+  // ── Quick Links ──
+  quickLinks: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    overflow: 'hidden',
+  },
+  quickLinkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  quickLinkDivider: {
+    height: 1,
+    backgroundColor: Colors.divider,
+    marginHorizontal: Spacing.lg,
+  },
+  quickLinkIcon: {
+    width: 38,
+    height: 38,
     borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dailyIcon: {
-    fontSize: 24,
+  quickLinkEmoji: {
+    fontSize: 19,
   },
-  dailyContent: {
+  quickLinkLabel: {
     flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
-  dailyTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 17,
-  },
-  dailySubtitle: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    marginTop: 3,
-  },
-  dailyArrowBox: {
-    width: 36,
-    height: 36,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dailyArrow: {
-    color: '#fff',
-    fontSize: 16,
+  quickLinkChevron: {
+    color: Colors.textMuted,
+    fontSize: 22,
+    fontWeight: '300',
   },
 });

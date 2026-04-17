@@ -113,8 +113,8 @@ Welcome to NumberMerge. This Privacy Policy explains how we collect, use, store,
 If you have questions, concerns, or requests regarding this Privacy Policy or your personal data, please contact us through:
 
 - **In-App Support**: Use the support option in the app settings
-- **Email**: [Support email to be added before publication]
-- **GitHub Issues**: [Repository URL to be added before publication]
+- **Email**: zainisdrained@gmail.com
+- **GitHub Issues**: https://github.com/P3nguin152/numbermerge
 
 ## 11. Legal Basis for Processing
 

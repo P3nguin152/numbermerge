@@ -8,13 +8,14 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.numbermerge.game"
+      "bundleIdentifier": "com.numbermerge.puzzle"
     },
     "android": {
-      "package": "com.numbermerge.game",
-      "versionCode": 1,
+      "package": "com.numbermerge.puzzle",
+      "versionCode": 8,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -34,6 +35,10 @@
         "projectId": "your-project-id-here"
       }
     },
-    "privacy": "https://your-privacy-policy-url.com"
+    "privacy": "https://p3nguin152.github.io/numbermerge/privacy-policy.html"
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-2956954119656003~3726637994",
+    "ios_app_id": "ca-app-pub-2956954119656003~3726637994"
   }
 }
