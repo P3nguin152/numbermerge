@@ -267,7 +267,8 @@ function LimitedMovesScreen() {
       soundManager.playSound('merge');
     }
 
-    setMerges(prev => prev + mergeCount);
+    const totalMerges = merges + mergeCount;
+    setMerges(totalMerges);
     setBestTile(maxTile);
     setMovesRemaining(prev => prev - 1);
     if (beatPersonalBest) {
@@ -279,7 +280,7 @@ function LimitedMovesScreen() {
       clearGameState('limitedMoves');
 
       // Save stats when game ends
-      updateStats(totalScore, merges + mergeCount, maxTile);
+      updateStats(totalScore, totalMerges, maxTile);
       soundManager.playSound('gameOver');
       AccessibilityInfo.announceForAccessibility(`Game over. Final score ${totalScore}.`);
 

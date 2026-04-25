@@ -8,33 +8,38 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Grid from '../components/Grid';
 import { GameState } from '../types/game';
+import { DailyChallenge } from '../types/dailyChallenge';
 import {
   createEmptyGrid,
   generateNextValue,
   dropTile,
   isGameOver,
   canDropInColumn,
+  isGridEmpty,
   GRID_COLS,
   GRID_ROWS,
 } from '../utils/mergeLogic';
-import { updateStats, loadStats } from '../utils/statsStorage';
-import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
 import { loadSettings } from '../utils/settingsStorage';
-import { incrementExitCount } from '../utils/exitStorage';
 import { useUser } from '../contexts/UserContext';
 import { AdBanner, useAds } from '../contexts/AdContext';
-import { leaderboardService } from '../services/leaderboardService';
-import { hasCompletedTutorial, hasCompletedTimeAttackTutorial } from '../utils/tutorialStorage';
-import TimeAttackTutorialOverlay from '../components/TimeAttackTutorialOverlay';
+import { dailyChallengeService } from '../services/dailyChallengeService';
+import { saveChallengeProgress, loadChallengeProgress, clearChallengeProgress } from '../utils/dailyChallengeStorage';
+import {
+  updateLastPlayedDate,
+  hasPlayedToday,
+  getStreakCount,
+  setStreakCount,
+  getLastPlayedDate,
+} from '../utils/notificationStorage';
 
 import { Colors, TileColors as ThemeTileColors, Radius, Spacing } from '../theme/colors';
 
-const TIME_ATTACK_DURATION = 120; // 2 minutes in seconds
-const MAX_TIME = 180; // 3 minutes max with bonuses
+const MAX_MOVES = 25;
+const MAX_MOVES_CAP = 40;
 
 export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.fromEntries(
   Object.entries(ThemeTileColors || {}).map(([k, v]) => {
@@ -45,12 +50,15 @@ export const TILE_COLORS: Record<number, { bg: string; text: string }> = Object.
   })
 );
 
-function TimeAttackScreen() {
+function DailyChallengeScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { username } = useUser();
   const { showRewarded, showInterstitial } = useAds();
+  const challenge = (route.params as any)?.challenge as DailyChallenge;
+  
   const [personalBest, setPersonalBest] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(TIME_ATTACK_DURATION);
+  const [movesRemaining, setMovesRemaining] = useState(MAX_MOVES);
   const [gameState, setGameState] = useState<GameState>(() => ({
     grid: createEmptyGrid(),
     score: 0,
@@ -60,14 +68,20 @@ function TimeAttackScreen() {
   const [merges, setMerges] = useState(0);
   const [bestTile, setBestTile] = useState(2);
   const [isPaused, setIsPaused] = useState(false);
-  const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
   const [isSubmittingScore, setIsSubmittingScore] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
   const [showNewBest, setShowNewBest] = useState(false);
   const [didBeatPersonalBest, setDidBeatPersonalBest] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
-  const [playAgainCount, setPlayAgainCount] = useState(0);
-  const [timeBonus, setTimeBonus] = useState<{ value: number; x: number; y: number } | null>(null);
+  const [moveBonus, setMoveBonus] = useState<{ value: number; x: number; y: number } | null>(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(5);
+  const [challengeCompleted, setChallengeCompleted] = useState(false);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [completedScore, setCompletedScore] = useState(0);
+  const [completedBestTile, setCompletedBestTile] = useState(2);
+  const [consecutiveMerges, setConsecutiveMerges] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [tilesRemaining, setTilesRemaining] = useState(0);
+  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -80,54 +94,68 @@ function TimeAttackScreen() {
       soundManager.setMusicEnabled(settings.musicEnabled);
     });
 
-    loadStats().then(stats => {
-      setTotalGamesPlayed(stats.gamesPlayed);
-      setPersonalBest(stats.highScore);
-    });
-
     // Load saved game state if exists
-    loadGameState('timeAttack').then(({ gameState: savedState, merges: savedMerges, bestTile: savedBestTile, timeRemaining: savedTimeRemaining }) => {
-      if (savedState && !savedState.gameOver) {
-        setGameState(savedState);
-        setMerges(savedMerges);
-        setBestTile(savedBestTile);
-        if (savedTimeRemaining !== undefined) {
-          setTimeRemaining(savedTimeRemaining);
-        }
+    loadChallengeProgress().then(savedChallenge => {
+      if (savedChallenge && savedChallenge.date === challenge?.date) {
+        setGameState({
+          grid: createEmptyGrid(),
+          score: 0,
+          gameOver: false,
+          nextTile: generateNextValue(),
+        });
+        setAttemptsRemaining(savedChallenge.attemptsRemaining);
+        setChallengeCompleted(savedChallenge.completed);
       }
     });
 
-    // Check if tutorial should be shown
-    hasCompletedTimeAttackTutorial().then((completed: boolean) => {
-      if (!completed) {
-        setShowTutorial(true);
-      }
-    });
+    // Load user status
+    if (username) {
+      dailyChallengeService.getUserChallengeStatus(username).then(status => {
+        if (status) {
+          setAttemptsRemaining(status.attemptsRemaining);
+          setChallengeCompleted(status.completed);
+          // If challenge is already completed, show completion overlay with stats
+          if (status.completed) {
+            setAlreadyCompleted(true);
+            setCompletedScore(status.bestScore);
+            setCompletedBestTile(status.bestTile);
+            setGameState(prev => ({ ...prev, gameOver: true }));
+            setShowNewBest(true);
+          } else {
+            // Initialize challenge-specific state
+            if (challenge.type === 'speed_run' && challenge.timeLimit) {
+              setTimeRemaining(challenge.timeLimit);
+            }
+          }
+        }
+      });
+    }
 
     return () => {
       soundManager.cleanup();
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
     };
-  }, []);
+  }, [challenge, username]);
 
-  // Timer for Time Attack mode
+  // Timer effect for speed run challenges
   useEffect(() => {
-    if (gameState.gameOver || isPaused) {
-      return;
+    if (challenge.type === 'speed_run' && challenge.timeLimit && !gameState.gameOver && !isPaused && timeRemaining > 0) {
+      const interval = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setGameState(prev => ({ ...prev, gameOver: true }));
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      setTimerInterval(interval);
+      return () => clearInterval(interval);
     }
-
-    const interval = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          // Time's up
-          setGameState(prevState => ({ ...prevState, gameOver: true }));
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [gameState.gameOver, isPaused]);
+  }, [challenge.type, challenge.timeLimit, gameState.gameOver, isPaused, timeRemaining]);
 
   // Animation values
   const scoreScale = useSharedValue(1);
@@ -137,7 +165,7 @@ function TimeAttackScreen() {
   const overlayScale = useSharedValue(0.8);
   const arrowScales = useRef(Array(GRID_COLS || 5).fill(0).map(() => useSharedValue(1))).current;
   const pauseButtonScale = useSharedValue(1);
-  const timerScale = useSharedValue(1);
+  const movesScale = useSharedValue(1);
   const bonusOpacity = useSharedValue(0);
   const bonusTranslateY = useSharedValue(0);
 
@@ -149,13 +177,13 @@ function TimeAttackScreen() {
     );
   }, [gameState.score]);
 
-  // Animate timer when it changes
+  // Animate moves when it changes
   useEffect(() => {
-    timerScale.value = withSequence(
+    movesScale.value = withSequence(
       withTiming(1.2, { duration: 100 }),
       withSpring(1, { damping: 10, stiffness: 300 })
     );
-  }, [timeRemaining]);
+  }, [movesRemaining]);
 
   // Animate next block when it changes
   useEffect(() => {
@@ -192,24 +220,24 @@ function TimeAttackScreen() {
     return () => clearTimeout(timeout);
   }, [showNewBest]);
 
-  // Animate time bonus
+  // Animate move bonus
   useEffect(() => {
-    if (timeBonus) {
+    if (moveBonus) {
       bonusOpacity.value = withTiming(1, { duration: 100 });
       bonusTranslateY.value = withSequence(
         withTiming(-50, { duration: 600, easing: Easing.out(Easing.cubic) }),
         withTiming(0, { duration: 100 })
       );
       const timeout = setTimeout(() => {
-        setTimeBonus(null);
+        setMoveBonus(null);
         bonusOpacity.value = withTiming(0, { duration: 200 });
       }, 800);
       return () => clearTimeout(timeout);
     }
-  }, [timeBonus, bonusOpacity, bonusTranslateY]);
+  }, [moveBonus, bonusOpacity, bonusTranslateY]);
 
   const handleColumnPress = useCallback((col: number) => {
-    if (gameState.gameOver || isPaused) return;
+    if (gameState.gameOver || isPaused || movesRemaining <= 0 || attemptsRemaining <= 0) return;
 
     // Animate arrow press
     arrowScales[col].value = withSequence(
@@ -220,29 +248,8 @@ function TimeAttackScreen() {
     if (!canDropInColumn(gameState.grid, col)) {
       // End game immediately when column is full
       setGameState(prev => ({ ...prev, gameOver: true }));
-      // Save stats when game ends
-      updateStats(gameState.score, merges, bestTile);
       soundManager.playSound('gameOver');
       AccessibilityInfo.announceForAccessibility(`Game over. Final score ${gameState.score}.`);
-
-      // Submit score to leaderboard if user has username
-      if (username) {
-        setIsSubmittingScore(true);
-        leaderboardService.submitScore(
-          username,
-          gameState.score,
-          bestTile,
-          totalGamesPlayed + 1
-        ).then(result => {
-          if (!result.success) {
-            console.warn('Score submission warning:', result.error);
-          }
-        }).catch(err => {
-          console.error('Failed to submit score:', err);
-        }).finally(() => {
-          setIsSubmittingScore(false);
-        });
-      }
       return;
     }
 
@@ -271,13 +278,12 @@ function TimeAttackScreen() {
       }
     }
 
-    // Calculate time bonus: +1s per 2-tile merge, +3s per triple merge
+    // Calculate move bonus: +1 per 2-tile merge, +3 per triple merge
     const regularMerges = mergeCount - tripleMergeCount;
-    const timeBonusValue = regularMerges * 1 + tripleMergeCount * 3;
-    if (timeBonusValue > 0) {
-      setTimeRemaining(prev => Math.min(prev + timeBonusValue, MAX_TIME));
-      // Show bonus animation near the timer
-      setTimeBonus({ value: timeBonusValue, x: 0, y: 0 });
+    const moveBonusValue = regularMerges * 1 + tripleMergeCount * 3;
+    if (moveBonusValue > 0) {
+      setMovesRemaining(prev => Math.min(prev + moveBonusValue, MAX_MOVES_CAP));
+      setMoveBonus({ value: moveBonusValue, x: 0, y: 0 });
     }
 
     const totalScore = gameState.score + moveScore;
@@ -289,71 +295,116 @@ function TimeAttackScreen() {
       soundManager.playSound('merge');
     }
 
-    const totalMerges = merges + mergeCount;
-    setMerges(totalMerges);
+    setMerges(prev => prev + mergeCount);
     setBestTile(maxTile);
+    
+    // Track consecutive merges for combo challenge
+    if (challenge.type === 'combo') {
+      if (mergeCount > 0) {
+        setConsecutiveMerges(prev => prev + 1);
+      } else {
+        setConsecutiveMerges(0);
+      }
+    }
+    
+    // Track tiles remaining for clear board challenge
+    if (challenge.type === 'clear_board') {
+      let tileCount = 0;
+      for (let row = 0; row < GRID_ROWS; row++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          if (newGrid[row][c] !== null) tileCount++;
+        }
+      }
+      setTilesRemaining(tileCount);
+    }
+    
+    // Only decrement moves if not speed run (speed run uses timer)
+    if (challenge.mode !== 'timeAttack') {
+      setMovesRemaining(prev => prev - 1);
+    }
+    
     if (beatPersonalBest) {
       setPersonalBest(totalScore);
     }
 
-    if (gameOver) {
-      // Clear saved game state so returning starts a new game
-      clearGameState('timeAttack');
+    // Check if challenge is completed
+    let completed = false;
+    if (challenge.type === 'target_score' && totalScore >= challenge.targetValue) {
+      completed = true;
+    } else if (challenge.type === 'tile_mastery' && maxTile >= challenge.targetValue) {
+      completed = true;
+    } else if (challenge.type === 'combo' && consecutiveMerges >= (challenge.comboTarget || 3)) {
+      completed = true;
+    } else if (challenge.type === 'clear_board' && tilesRemaining === 0) {
+      completed = true;
+    } else if (challenge.type === 'speed_run' && totalScore >= challenge.targetValue) {
+      completed = true;
+    }
 
-      // Save stats when game ends
-      updateStats(totalScore, totalMerges, maxTile);
-      soundManager.playSound('gameOver');
-      AccessibilityInfo.announceForAccessibility(`Game over. Final score ${totalScore}.`);
-
-      // Show new best banner if personal best was beaten
-      if (beatPersonalBest && !showNewBest) {
-        setDidBeatPersonalBest(true);
-        setShowNewBest(true);
-      }
-
-      // Submit score to leaderboard if user has username
+    // Game over conditions
+    const isTimeAttackGameOver = challenge.type === 'speed_run' && timeRemaining <= 0;
+    const isLimitedMovesGameOver = challenge.mode === 'limitedMoves' && movesRemaining <= 1;
+    
+    if (gameOver || isLimitedMovesGameOver || isTimeAttackGameOver || completed) {
+      // Decrement attempts when game ends
+      setAttemptsRemaining(prev => prev - 1);
+      
+      // Submit score to daily challenge service
       if (username) {
         setIsSubmittingScore(true);
-        leaderboardService.submitScore(
+        dailyChallengeService.submitChallengeAttempt(
           username,
+          challenge,
           totalScore,
           maxTile,
-          totalGamesPlayed + 1
+          completed
         ).then(result => {
-          if (!result.success) {
-            console.warn('Score submission warning:', result.error);
+          if (result.success) {
+            setChallengeCompleted(completed);
+            
+            // Update streak if challenge was completed
+            if (completed) {
+              updateStreak();
+            }
           }
         }).catch(err => {
-          console.error('Failed to submit score:', err);
+          console.error('Failed to submit challenge attempt:', err);
         }).finally(() => {
           setIsSubmittingScore(false);
         });
       }
-    }
 
-    setGameState({
-      grid: newGrid,
-      score: totalScore,
-      gameOver: gameOver,
-      nextTile: gameOver ? gameState.nextTile : generateNextValue(),
-      lastMergeValue: maxMergeValue || undefined,
-    });
-  }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest, showNewBest]);
+      setGameState({
+        grid: newGrid,
+        score: totalScore,
+        gameOver: true,
+        nextTile: gameState.nextTile,
+        lastMergeValue: maxMergeValue || undefined,
+      });
+
+      if (completed) {
+        soundManager.playSound('merge');
+        setShowNewBest(true);
+      } else {
+        soundManager.playSound('gameOver');
+      }
+    } else {
+      setGameState({
+        grid: newGrid,
+        score: totalScore,
+        gameOver: gameOver,
+        nextTile: generateNextValue(),
+        lastMergeValue: maxMergeValue || undefined,
+      });
+    }
+  }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, arrowScales, personalBest, challenge, username, movesRemaining, attemptsRemaining]);
 
   const initializeGame = useCallback(async () => {
-    // Show interstitial ad if game was over and this is the 3rd play again
-    if (gameState.gameOver) {
-      const newCount = playAgainCount + 1;
-      if (newCount >= 3) {
-        showInterstitial();
-        setPlayAgainCount(0);
-      } else {
-        setPlayAgainCount(newCount);
-      }
+    if (attemptsRemaining <= 0) {
+      navigation.goBack();
+      return;
     }
     
-    // Clear saved game state when starting a new game
-    clearGameState('timeAttack');
     setGameState({
       grid: createEmptyGrid(),
       score: 0,
@@ -362,10 +413,15 @@ function TimeAttackScreen() {
     });
     setMerges(0);
     setBestTile(2);
-    setTimeRemaining(TIME_ATTACK_DURATION);
+    setMovesRemaining(MAX_MOVES);
+    setConsecutiveMerges(0);
+    setTilesRemaining(0);
+    if (challenge.type === 'speed_run' && challenge.timeLimit) {
+      setTimeRemaining(challenge.timeLimit);
+    }
     setDidBeatPersonalBest(false);
     setShowNewBest(false);
-  }, [gameState.gameOver, showInterstitial, playAgainCount]);
+  }, [attemptsRemaining, navigation, challenge]);
 
   const handlePausePress = useCallback(() => {
     pauseButtonScale.value = withSequence(
@@ -390,44 +446,56 @@ function TimeAttackScreen() {
     initializeGame();
   }, [initializeGame]);
 
-  const handleQuit = useCallback(async () => {
-    // Save game state before quitting
-    if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile, 'timeAttack', timeRemaining);
-    }
-    
-    // Track exit and show ad every 5th time
-    const exitCount = await incrementExitCount();
-    if (exitCount % 5 === 0) {
-      showInterstitial();
-    }
-    
+  const handleQuit = useCallback(() => {
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile, timeRemaining, showInterstitial]);
+  }, [navigation]);
 
-  const handleBackPress = useCallback(async () => {
-    // Save game state before backing out
-    if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile, 'timeAttack', timeRemaining);
-    }
-    
-    // Track exit and show ad every 5th time
-    const exitCount = await incrementExitCount();
-    if (exitCount % 5 === 0) {
-      showInterstitial();
-    }
-    
+  const handleBackPress = useCallback(() => {
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile, timeRemaining, showInterstitial]);
+  }, [navigation]);
+
+  const updateStreak = useCallback(async () => {
+    try {
+      await updateLastPlayedDate();
+      
+      const playedToday = await hasPlayedToday();
+      if (playedToday) {
+        return; // Already updated streak today
+      }
+      
+      const lastPlayed = await getLastPlayedDate();
+      const streak = await getStreakCount();
+      
+      if (!lastPlayed) {
+        // First time playing
+        await setStreakCount(1);
+      } else {
+        const lastPlayedDate = new Date(lastPlayed);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (lastPlayedDate.toDateString() === yesterday.toDateString()) {
+          // Played yesterday, increment streak
+          await setStreakCount(streak + 1);
+        } else if (lastPlayedDate.toDateString() !== today.toDateString()) {
+          // Streak broken, reset to 1
+          await setStreakCount(1);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating streak:', error);
+    }
+  }, []);
 
   const handleWatchAdToContinue = useCallback(async () => {
     setIsWatchingAd(true);
     const { rewarded } = await showRewarded();
     setIsWatchingAd(false);
 
-    // Proceed regardless of reward detection (test ads may not trigger rewards)
-    // Add 30 seconds to continue playing
-    setTimeRemaining(prev => Math.max(prev + 30, 30));
+    // Add 5 moves to continue playing
+    setMovesRemaining(prev => prev + 5);
+    setAttemptsRemaining(prev => prev + 1);
     
     // Check if grid can continue before resetting game over
     const canContinue = gameState.grid.some(row => 
@@ -438,7 +506,6 @@ function TimeAttackScreen() {
       setGameState(prev => ({ ...prev, gameOver: false }));
       soundManager.playSound('resume');
     } else {
-      // Grid is full, cannot continue even with more time
       soundManager.playSound('gameOver');
     }
   }, [showRewarded, gameState.grid]);
@@ -457,8 +524,8 @@ function TimeAttackScreen() {
     transform: [{ scale: pauseButtonScale.value }] as any,
   }), []);
 
-  const timerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: timerScale.value }] as any,
+  const movesAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: movesScale.value }] as any,
   }), []);
 
   const bonusAnimatedStyle = useAnimatedStyle(() => ({
@@ -468,19 +535,41 @@ function TimeAttackScreen() {
 
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
-  }));
+  }), []);
 
   const overlayCardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: overlayScale.value }],
-  }));
+    transform: [{ scale: overlayScale.value }] as any,
+  }), []);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const isTimeRunningLow = timeRemaining <= 10;
+  const isMovesRunningLow = movesRemaining <= 5;
+  const isTargetScoreChallenge = challenge.type === 'target_score';
+  const isTileMasteryChallenge = challenge.type === 'tile_mastery';
+  const isComboChallenge = challenge.type === 'combo';
+  const isClearBoardChallenge = challenge.type === 'clear_board';
+  const isSpeedRunChallenge = challenge.type === 'speed_run';
+  
+  let targetProgress = 0;
+  let progressLabel = '';
+  let progressValue = 0;
+  
+  if (isTargetScoreChallenge || isSpeedRunChallenge) {
+    targetProgress = Math.min(100, (gameState.score / challenge.targetValue) * 100);
+    progressLabel = 'SCORE';
+    progressValue = gameState.score;
+  } else if (isTileMasteryChallenge) {
+    targetProgress = Math.min(100, (bestTile / challenge.targetValue) * 100);
+    progressLabel = 'TILE';
+    progressValue = bestTile;
+  } else if (isComboChallenge) {
+    targetProgress = Math.min(100, (consecutiveMerges / (challenge.comboTarget || 3)) * 100);
+    progressLabel = 'STREAK';
+    progressValue = consecutiveMerges;
+  } else if (isClearBoardChallenge) {
+    const totalTiles = GRID_ROWS * GRID_COLS;
+    targetProgress = Math.min(100, ((totalTiles - tilesRemaining) / totalTiles) * 100);
+    progressLabel = 'CLEARED';
+    progressValue = totalTiles - tilesRemaining;
+  }
 
   return (
     <View style={styles.container}>
@@ -497,20 +586,22 @@ function TimeAttackScreen() {
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
-          <View style={styles.scoreChip} accessibilityRole="summary" accessibilityLabel={`Current score ${gameState.score}. Personal best ${personalBest}.`}>
-            <Text style={styles.scoreLabel}>SCORE</Text>
-            <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>{gameState.score}</Animated.Text>
-          </View>
-          <View style={[styles.timerChip, isTimeRunningLow && styles.timerChipLow]}>
-            <Text style={styles.timerLabel}>TIME</Text>
-            <Animated.Text style={[styles.timerValue, isTimeRunningLow && styles.timerValueLow, timerAnimatedStyle]}>
-              {formatTime(timeRemaining)}
+          <View style={styles.scoreChip}>
+            <Text style={styles.scoreLabel}>
+              {progressLabel}
+            </Text>
+            <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>
+              {progressValue}
             </Animated.Text>
-            {timeBonus && (
-              <Animated.View style={[styles.timeBonusContainer, bonusAnimatedStyle]}>
-                <Text style={styles.timeBonusText}>+{timeBonus.value}s</Text>
-              </Animated.View>
-            )}
+          </View>
+          <View style={styles.targetChip}>
+            <Text style={styles.targetLabel}>TARGET</Text>
+            <Text style={styles.targetValue}>
+              {isComboChallenge ? `${challenge.comboTarget || 3} in a row` : 
+               isClearBoardChallenge ? 'CLEAR ALL' :
+               isSpeedRunChallenge ? `${challenge.timeLimit}s` :
+               challenge.targetValue}
+            </Text>
           </View>
         </View>
 
@@ -525,21 +616,34 @@ function TimeAttackScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Progress Bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${targetProgress}%` }]} />
+        </View>
+        <Text style={styles.progressText}>
+          {isComboChallenge ? `${consecutiveMerges}/${challenge.comboTarget || 3}` :
+           isClearBoardChallenge ? `${tilesRemaining} left` :
+           isSpeedRunChallenge ? `${timeRemaining}s` :
+           `${Math.round(targetProgress)}%`}
+        </Text>
+      </View>
+
       {/* Next Block Strip */}
       <View style={styles.nextStrip}>
         <Text style={styles.nextLabel}>NEXT</Text>
-        <Animated.View style={[styles.nextPreview, { backgroundColor: nextColor }, nextBlockAnimatedStyle]} accessibilityLabel={`Next tile ${gameState.nextTile}`}>
+        <Animated.View style={[styles.nextPreview, { backgroundColor: nextColor }, nextBlockAnimatedStyle]}>
           <Text style={styles.nextNumber}>{gameState.nextTile}</Text>
         </Animated.View>
-        <View style={styles.personalBestChip}>
-          <Text style={styles.personalBestLabel}>BEST</Text>
-          <Text style={styles.personalBestValue}>{personalBest.toLocaleString()}</Text>
+        <View style={styles.attemptsChip}>
+          <Text style={styles.attemptsLabel}>ATTEMPTS</Text>
+          <Text style={styles.attemptsValue}>{attemptsRemaining}/5</Text>
         </View>
       </View>
 
       {showNewBest && (
-        <View style={styles.newBestBanner} accessibilityLiveRegion="polite">
-          <Text style={styles.newBestText}>New Best! {gameState.score.toLocaleString()}</Text>
+        <View style={styles.newBestBanner}>
+          <Text style={styles.newBestText}>Challenge Complete! 🎉</Text>
         </View>
       )}
 
@@ -552,13 +656,14 @@ function TimeAttackScreen() {
           return (
             <TouchableOpacity
               key={i}
-              style={styles.arrowButton}
+              style={[styles.arrowButton, movesRemaining <= 0 && styles.arrowButtonDisabled]}
               onPress={() => handleColumnPress(i)}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={`Drop tile in column ${i + 1}`}
+              disabled={movesRemaining <= 0 || attemptsRemaining <= 0}
             >
-              <Animated.Text style={[styles.arrowText, arrowAnimatedStyle]}>▼</Animated.Text>
+              <Animated.Text style={[styles.arrowText, movesRemaining <= 0 && styles.arrowTextDisabled, arrowAnimatedStyle]}>▼</Animated.Text>
             </TouchableOpacity>
           );
         })}
@@ -576,53 +681,62 @@ function TimeAttackScreen() {
       {gameState.gameOver && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
           <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>💥</Text>
-            <Text style={styles.overlayTitle}>Time's Up!</Text>
+            <Text style={styles.overlayEmoji}>
+              {alreadyCompleted ? '✅' : challengeCompleted ? '🎉' : '💥'}
+            </Text>
+            <Text style={styles.overlayTitle}>
+              {alreadyCompleted ? 'Already Completed Today' : 
+               challengeCompleted ? 'Challenge Complete!' : 
+               isSpeedRunChallenge ? 'Time\'s Up!' : 'Out of Moves!'}
+            </Text>
             <View style={styles.overlayScoreRow}>
-              <Text style={styles.overlayScoreLabel}>Final Score</Text>
-              <Text style={styles.overlayScoreValue}>{gameState.score.toLocaleString()}</Text>
+              <Text style={styles.overlayScoreLabel}>
+                {isTargetScoreChallenge || isSpeedRunChallenge ? 'Final Score' :
+                 isTileMasteryChallenge ? 'Best Tile' :
+                 isComboChallenge ? 'Best Streak' :
+                 'Tiles Cleared'}
+              </Text>
+              <Text style={styles.overlayScoreValue}>
+                {isTargetScoreChallenge || isSpeedRunChallenge ? (alreadyCompleted ? completedScore : gameState.score).toLocaleString() :
+                 isTileMasteryChallenge ? (alreadyCompleted ? completedBestTile : bestTile) :
+                 isComboChallenge ? (alreadyCompleted ? completedBestTile : consecutiveMerges) :
+                 (alreadyCompleted ? completedBestTile : (GRID_ROWS * GRID_COLS - tilesRemaining))}
+              </Text>
             </View>
-            {didBeatPersonalBest && (
-              <View style={styles.recordBadge}>
-                <Text style={styles.recordBadgeText}>New personal best</Text>
-              </View>
-            )}
             {isSubmittingScore && (
               <View style={styles.submittingRow}>
                 <ActivityIndicator color={Colors.primaryLight} size="small" />
                 <Text style={styles.submittingText}>Submitting score...</Text>
               </View>
             )}
-            <TouchableOpacity
-              style={[styles.overlayBtn, isSubmittingScore && styles.overlayBtnDisabled]}
-              onPress={initializeGame}
-              activeOpacity={0.85}
-              disabled={isSubmittingScore}
-              accessibilityRole="button"
-              accessibilityLabel={isSubmittingScore ? 'Submitting score' : 'Play again'}
-            >
-              <Text style={styles.overlayBtnText}>
-                {isSubmittingScore ? 'SUBMITTING...' : 'PLAY AGAIN'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.overlayBtnRewarded, isWatchingAd && styles.overlayBtnDisabled]}
-              onPress={handleWatchAdToContinue}
-              activeOpacity={0.85}
-              disabled={isWatchingAd}
-              accessibilityRole="button"
-              accessibilityLabel={isWatchingAd ? 'Loading ad' : 'Watch ad to continue'}
-            >
-              <Text style={styles.overlayBtnRewardedText}>
-                {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD FOR +30s'}
-              </Text>
-            </TouchableOpacity>
+            {attemptsRemaining > 0 && !challengeCompleted && (
+              <TouchableOpacity
+                style={[styles.overlayBtn, isSubmittingScore && styles.overlayBtnDisabled]}
+                onPress={initializeGame}
+                activeOpacity={0.85}
+                disabled={isSubmittingScore}
+              >
+                <Text style={styles.overlayBtnText}>
+                  {isSubmittingScore ? 'SUBMITTING...' : `TRY AGAIN (${attemptsRemaining} LEFT)`}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {!challengeCompleted && (
+              <TouchableOpacity
+                style={[styles.overlayBtnRewarded, isWatchingAd && styles.overlayBtnDisabled]}
+                onPress={handleWatchAdToContinue}
+                activeOpacity={0.85}
+                disabled={isWatchingAd}
+              >
+                <Text style={styles.overlayBtnRewardedText}>
+                  {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD TO HAVE AN EXTRA ATTEMPT'}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.overlayBtnSecondary}
               onPress={handleQuit}
               activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Back to home"
             >
               <Text style={styles.overlayBtnSecondaryText}>Back to Home</Text>
             </TouchableOpacity>
@@ -640,8 +754,6 @@ function TimeAttackScreen() {
               style={styles.overlayBtn}
               onPress={handleResume}
               activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Resume game"
             >
               <Text style={styles.overlayBtnText}>▶  RESUME</Text>
             </TouchableOpacity>
@@ -649,8 +761,6 @@ function TimeAttackScreen() {
               style={styles.overlayBtnSecondary}
               onPress={handleRestart}
               activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Restart game"
             >
               <Text style={styles.overlayBtnSecondaryText}>🔄  Restart</Text>
             </TouchableOpacity>
@@ -658,33 +768,23 @@ function TimeAttackScreen() {
               style={[styles.overlayBtnSecondary, { borderColor: Colors.danger }]}
               onPress={handleQuit}
               activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Quit game"
             >
               <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>✖  Quit</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
       )}
-
-      {/* Tutorial Overlay */}
-      <TimeAttackTutorialOverlay
-        visible={showTutorial && !isPaused && !gameState.gameOver}
-        onClose={() => setShowTutorial(false)}
-      />
     </View>
   );
 }
 
-export default React.memo(TimeAttackScreen);
+export default React.memo(DailyChallengeScreen);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.bg,
   },
-
-  // ── Top Bar ──
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -736,47 +836,27 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 2,
   },
-  timerChip: {
-    backgroundColor: Colors.card,
+  targetChip: {
+    backgroundColor: Colors.goldDim,
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: Colors.gold,
     paddingVertical: 8,
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
     minWidth: 70,
   },
-  timerChipLow: {
-    borderColor: Colors.danger,
-    backgroundColor: Colors.dangerDim,
-  },
-  timerLabel: {
+  targetLabel: {
     color: Colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.5,
   },
-  timerValue: {
-    color: Colors.accent,
+  targetValue: {
+    color: Colors.gold,
     fontSize: 20,
     fontWeight: '900',
     marginTop: 2,
-  },
-  timerValueLow: {
-    color: Colors.danger,
-  },
-  timeBonusContainer: {
-    position: 'absolute',
-    top: -20,
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  timeBonusText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
   },
   pauseBtn: {
     width: 42,
@@ -792,8 +872,32 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 20,
   },
-
-  // ── Next Strip ──
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: Colors.card,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.gold,
+    borderRadius: 4,
+  },
+  progressText: {
+    color: Colors.gold,
+    fontSize: 14,
+    fontWeight: '800',
+    minWidth: 40,
+    textAlign: 'right',
+  },
   nextStrip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -824,18 +928,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
-  personalBestChip: {
+  attemptsChip: {
     marginLeft: 'auto',
     alignItems: 'flex-end',
   },
-  personalBestLabel: {
+  attemptsLabel: {
     color: Colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.2,
   },
-  personalBestValue: {
-    color: Colors.success,
+  attemptsValue: {
+    color: Colors.primary,
     fontSize: 18,
     fontWeight: '900',
     marginTop: 2,
@@ -856,8 +960,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-
-  // ── Arrows ──
   arrowRow: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.sm,
@@ -868,13 +970,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
   },
+  arrowButtonDisabled: {
+    opacity: 0.3,
+  },
   arrowText: {
     color: Colors.primary,
     fontSize: 16,
     opacity: 0.6,
   },
-
-  // ── Grid ──
+  arrowTextDisabled: {
+    opacity: 0.3,
+  },
   gridContainer: {
     flex: 1,
     paddingHorizontal: Spacing.sm,
@@ -882,8 +988,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // ── Overlays ──
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: Colors.overlay,
@@ -927,20 +1031,6 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     fontSize: 36,
     fontWeight: '900',
-  },
-  recordBadge: {
-    backgroundColor: Colors.successDim,
-    borderColor: Colors.success,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  recordBadgeText: {
-    color: Colors.success,
-    fontSize: 13,
-    fontWeight: '800',
   },
   overlayBtn: {
     width: '100%',

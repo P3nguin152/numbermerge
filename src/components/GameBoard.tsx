@@ -8,6 +8,7 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 import { useNavigation } from '@react-navigation/native';
@@ -22,8 +23,10 @@ import {
   canDropInColumn,
   GRID_COLS,
   GRID_ROWS,
+  applyGravityToGrid,
 } from '../utils/mergeLogic';
-import { updateStats, loadStats } from '../utils/statsStorage';
+import { settleGridWithAnimation, countPotentialMerges } from '../utils/mergeAnimation';
+import { updateStats, loadStats, updateFastestMergeTime, updateMaxChainReaction, updatePlayTime } from '../utils/statsStorage';
 import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
 import { loadSettings } from '../utils/settingsStorage';
@@ -78,6 +81,9 @@ function GameBoard() {
   const [playAgainCount, setPlayAgainCount] = useState(0);
   const [globalRank, setGlobalRank] = useState<number | null>(null);
   const [lastScoreForRankFetch, setLastScoreForRankFetch] = useState(0);
+  const [lastMergeTime, setLastMergeTime] = useState<number | null>(null);
+  const [isAnimatingMerges, setIsAnimatingMerges] = useState(false);
+  const gameStartTimeRef = useRef<number>(Date.now());
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -146,6 +152,30 @@ function GameBoard() {
     }
   }, [username, gameState.score, gameState.gameOver]);
 
+  // Track when user leaves screen via swipe gesture
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
+        // Save game state before leaving
+        if (!gameState.gameOver) {
+          await saveGameState(gameState, merges, bestTile, 'classic');
+        }
+
+        // Track exit and show ad every 5th time
+        const exitCount = await incrementExitCount();
+        if (exitCount % 5 === 0) {
+          // Don't prevent default - let navigation happen
+          // Show ad after navigation completes
+          setTimeout(() => {
+            showInterstitial();
+          }, 100);
+        }
+      });
+
+      return unsubscribe;
+    }, [navigation, gameState, merges, bestTile, showInterstitial])
+  );
+
   // Animation values
   const scoreScale = useSharedValue(1);
   const nextBlockScale = useSharedValue(1);
@@ -211,8 +241,8 @@ function GameBoard() {
     return () => clearTimeout(timeout);
   }, [showNewBest]);
 
-  const handleColumnPress = useCallback((col: number) => {
-    if (gameState.gameOver || isPaused) return;
+  const handleColumnPress = useCallback(async (col: number) => {
+    if (gameState.gameOver || isPaused || isAnimatingMerges) return;
 
     // Save current state for undo before making a move
     saveStateForUndo(gameState);
@@ -227,7 +257,8 @@ function GameBoard() {
       // End game immediately when column is full
       setGameState(prev => ({ ...prev, gameOver: true }));
       // Save stats when game ends
-      updateStats(gameState.score, merges, bestTile);
+      await updateStats(gameState.score, merges, bestTile);
+      await updatePlayTime(Date.now() - gameStartTimeRef.current);
       soundManager.playSound('gameOver');
       AccessibilityInfo.announceForAccessibility(`Game over. Final score ${gameState.score}.`);
 
@@ -252,90 +283,241 @@ function GameBoard() {
       return;
     }
 
-    const { grid: newGrid, score: moveScore, tripleMergeCount: _tripleMergeCount, totalMergeCount: _totalMergeCount } = dropTile(
-      gameState.grid,
-      gameState.nextTile,
-      col
-    );
-    const gameOver = isGameOver(newGrid);
+    const dropStartTime = Date.now();
 
-    // Track merges and best tile
-    let mergeCount = 0;
-    let maxTile = bestTile;
-    let maxMergeValue = 0;
+    // Check for potential merges to decide if we should animate
+    const potentialMerges = countPotentialMerges(gameState.grid, col, gameState.nextTile);
 
-    // Count merges and find best tile in the new grid
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let c = 0; c < GRID_COLS; c++) {
-        const tile = newGrid[row][c];
-        if (tile) {
-          if (tile.isMerged) {
-            mergeCount++;
-            if (tile.value > maxMergeValue) maxMergeValue = tile.value;
+    if (potentialMerges > 1) {
+      // Use animated merge for chain reactions
+      setIsAnimatingMerges(true);
+      soundManager.playSound('drop');
+
+      // Place the initial tile
+      const initialGrid = gameState.grid.map(row => [...row]);
+      if (initialGrid[0]) {
+        initialGrid[0][col] = {
+          id: Math.random().toString(36).slice(2, 11),
+          value: gameState.nextTile,
+          row: 0,
+          col,
+          isFalling: true,
+          fromRow: -1,
+          fromCol: col,
+          isMerged: false,
+        };
+      }
+
+      // Apply initial gravity
+      applyGravityToGrid(initialGrid);
+      setGameState(prev => ({ ...prev, grid: initialGrid }));
+
+      // Run animated settlement
+      const result = await settleGridWithAnimation(
+        initialGrid,
+        col,
+        (step) => {
+          setGameState(prev => ({ ...prev, grid: step.grid }));
+        },
+        200 // 200ms delay between passes
+      );
+
+      setIsAnimatingMerges(false);
+
+      const newGrid = result.grid;
+      const moveScore = result.score + gameState.nextTile; // Add base drop score
+      const _totalMergeCount = result.totalMergeCount;
+      const gameOver = isGameOver(newGrid);
+
+      // Track merges and best tile
+      let mergeCount = 0;
+      let maxTile = bestTile;
+      let maxMergeValue = 0;
+
+      for (let row = 0; row < GRID_ROWS; row++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          const tile = newGrid[row][c];
+          if (tile) {
+            if (tile.isMerged) {
+              mergeCount++;
+              if (tile.value > maxMergeValue) maxMergeValue = tile.value;
+            }
+            if (tile.value > maxTile) maxTile = tile.value;
           }
-          if (tile.value > maxTile) maxTile = tile.value;
         }
       }
-    }
 
-    const totalScore = gameState.score + moveScore * (doublePointsActive ? 2 : 1);
-    const beatPersonalBest = totalScore > personalBest;
+      // Track merge timing for Speed Demon achievement
+      if (mergeCount > 0 && lastMergeTime !== null) {
+        const mergeTime = Date.now() - dropStartTime;
+        updateFastestMergeTime(mergeTime);
+      }
+      setLastMergeTime(Date.now());
 
-    // Play sound effects
-    soundManager.playSound('drop');
-    if (mergeCount > 0) {
-      soundManager.playSound('merge');
-    }
-
-    setMerges(prev => prev + mergeCount);
-    setBestTile(maxTile);
-    if (beatPersonalBest) {
-      setPersonalBest(totalScore);
-    }
-
-    if (gameOver) {
-      // Clear saved game state so returning starts a new game
-      clearGameState('classic');
-
-      // Save stats when game ends
-      updateStats(totalScore, merges + mergeCount, maxTile);
-      soundManager.playSound('gameOver');
-      AccessibilityInfo.announceForAccessibility(`Game over. Final score ${totalScore}.`);
-
-      // Show new best banner if personal best was beaten
-      if (beatPersonalBest && !showNewBest) {
-        setDidBeatPersonalBest(true);
-        setShowNewBest(true);
+      // Track chain reaction for Chain Reaction achievement
+      if (_totalMergeCount > 0) {
+        updateMaxChainReaction(_totalMergeCount);
       }
 
-      // Submit score to leaderboard if user has username
-      if (username) {
-        setIsSubmittingScore(true);
-        leaderboardService.submitScore(
-          username,
-          totalScore,
-          maxTile,
-          totalGamesPlayed + 1
-        ).then(result => {
-          if (!result.success) {
-            console.warn('Score submission warning:', result.error);
+      const totalScore = gameState.score + moveScore * (doublePointsActive ? 2 : 1);
+      const beatPersonalBest = totalScore > personalBest;
+
+      // Play merge sound after animation completes
+      if (mergeCount > 0) {
+        soundManager.playSound('merge');
+      }
+
+      const totalMerges = merges + mergeCount;
+      setMerges(totalMerges);
+      setBestTile(maxTile);
+      if (beatPersonalBest) {
+        setPersonalBest(totalScore);
+      }
+
+      if (gameOver) {
+        // Clear saved game state so returning starts a new game
+        clearGameState('classic');
+
+        // Save stats when game ends
+        await updateStats(totalScore, totalMerges, maxTile);
+        await updatePlayTime(Date.now() - gameStartTimeRef.current);
+        soundManager.playSound('gameOver');
+        AccessibilityInfo.announceForAccessibility(`Game over. Final score ${totalScore}.`);
+
+        // Show new best banner if personal best was beaten
+        if (beatPersonalBest && !showNewBest) {
+          setDidBeatPersonalBest(true);
+          setShowNewBest(true);
+        }
+
+        // Submit score to leaderboard if user has username
+        if (username) {
+          setIsSubmittingScore(true);
+          leaderboardService.submitScore(
+            username,
+            totalScore,
+            maxTile,
+            totalGamesPlayed + 1
+          ).then(result => {
+            if (!result.success) {
+              console.warn('Score submission warning:', result.error);
+            }
+          }).catch(err => {
+            console.error('Failed to submit score:', err);
+          }).finally(() => {
+            setIsSubmittingScore(false);
+          });
+        }
+      }
+
+      setGameState({
+        grid: newGrid,
+        score: totalScore,
+        gameOver: gameOver,
+        nextTile: gameOver ? gameState.nextTile : generateNextValue(),
+        lastMergeValue: maxMergeValue || undefined,
+      });
+    } else {
+      // Use instant merge for simple cases
+      const { grid: newGrid, score: moveScore, tripleMergeCount: _tripleMergeCount, totalMergeCount: _totalMergeCount } = dropTile(
+        gameState.grid,
+        gameState.nextTile,
+        col
+      );
+      const gameOver = isGameOver(newGrid);
+
+      // Track merges and best tile
+      let mergeCount = 0;
+      let maxTile = bestTile;
+      let maxMergeValue = 0;
+
+      // Count merges and find best tile in the new grid
+      for (let row = 0; row < GRID_ROWS; row++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          const tile = newGrid[row][c];
+          if (tile) {
+            if (tile.isMerged) {
+              mergeCount++;
+              if (tile.value > maxMergeValue) maxMergeValue = tile.value;
+            }
+            if (tile.value > maxTile) maxTile = tile.value;
           }
-        }).catch(err => {
-          console.error('Failed to submit score:', err);
-        }).finally(() => {
-          setIsSubmittingScore(false);
-        });
+        }
       }
-    }
 
-    setGameState({
-      grid: newGrid,
-      score: totalScore,
-      gameOver: gameOver,
-      nextTile: gameOver ? gameState.nextTile : generateNextValue(),
-      lastMergeValue: maxMergeValue || undefined,
-    });
-  }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest]);
+      // Track merge timing for Speed Demon achievement
+      if (mergeCount > 0 && lastMergeTime !== null) {
+        const mergeTime = Date.now() - dropStartTime;
+        updateFastestMergeTime(mergeTime);
+      }
+      setLastMergeTime(Date.now());
+
+      // Track chain reaction for Chain Reaction achievement
+      if (_totalMergeCount > 0) {
+        updateMaxChainReaction(_totalMergeCount);
+      }
+
+      const totalScore = gameState.score + moveScore * (doublePointsActive ? 2 : 1);
+      const beatPersonalBest = totalScore > personalBest;
+
+      // Play sound effects
+      soundManager.playSound('drop');
+      if (mergeCount > 0) {
+        soundManager.playSound('merge');
+      }
+
+      const totalMerges = merges + mergeCount;
+      setMerges(totalMerges);
+      setBestTile(maxTile);
+      if (beatPersonalBest) {
+        setPersonalBest(totalScore);
+      }
+
+      if (gameOver) {
+        // Clear saved game state so returning starts a new game
+        clearGameState('classic');
+
+        // Save stats when game ends
+        await updateStats(totalScore, totalMerges, maxTile);
+        await updatePlayTime(Date.now() - gameStartTimeRef.current);
+        soundManager.playSound('gameOver');
+        AccessibilityInfo.announceForAccessibility(`Game over. Final score ${totalScore}.`);
+
+        // Show new best banner if personal best was beaten
+        if (beatPersonalBest && !showNewBest) {
+          setDidBeatPersonalBest(true);
+          setShowNewBest(true);
+        }
+
+        // Submit score to leaderboard if user has username
+        if (username) {
+          setIsSubmittingScore(true);
+          leaderboardService.submitScore(
+            username,
+            totalScore,
+            maxTile,
+            totalGamesPlayed + 1
+          ).then(result => {
+            if (!result.success) {
+              console.warn('Score submission warning:', result.error);
+            }
+          }).catch(err => {
+            console.error('Failed to submit score:', err);
+          }).finally(() => {
+            setIsSubmittingScore(false);
+          });
+        }
+      }
+
+      setGameState({
+        grid: newGrid,
+        score: totalScore,
+        gameOver: gameOver,
+        nextTile: gameOver ? gameState.nextTile : generateNextValue(),
+        lastMergeValue: maxMergeValue || undefined,
+      });
+    }
+  }, [gameState.gameOver, isPaused, gameState.grid, gameState.nextTile, gameState.score, merges, bestTile, totalGamesPlayed, username, arrowScales, personalBest, isAnimatingMerges, doublePointsActive, showNewBest, lastMergeTime]);
 
   const initializeGame = useCallback(async () => {
     // Show interstitial ad if game was over and this is the 3rd play again
@@ -361,6 +543,8 @@ function GameBoard() {
     setBestTile(2);
     setDidBeatPersonalBest(false);
     setShowNewBest(false);
+    setLastMergeTime(null);
+    gameStartTimeRef.current = Date.now();
     resetDoublePoints();
   }, [gameState.gameOver, showInterstitial, playAgainCount, resetDoublePoints]);
 
@@ -388,19 +572,8 @@ function GameBoard() {
   }, [initializeGame]);
 
   const handleQuit = useCallback(async () => {
-    // Save game state before quitting
-    if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile, 'classic');
-    }
-    
-    // Track exit and show ad every 5th time
-    const exitCount = await incrementExitCount();
-    if (exitCount % 5 === 0) {
-      showInterstitial();
-    }
-    
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile, showInterstitial]);
+  }, [navigation]);
 
   const handleUndoPress = useCallback(async () => {
     const previousState = await handleUndo();
@@ -409,20 +582,9 @@ function GameBoard() {
     }
   }, [handleUndo]);
 
-  const handleBackPress = useCallback(async () => {
-    // Save game state before backing out
-    if (!gameState.gameOver) {
-      saveGameState(gameState, merges, bestTile, 'classic');
-    }
-    
-    // Track exit and show ad every 5th time
-    const exitCount = await incrementExitCount();
-    if (exitCount % 5 === 0) {
-      showInterstitial();
-    }
-    
+  const handleBackPress = useCallback(() => {
     navigation.goBack();
-  }, [navigation, gameState, merges, bestTile, showInterstitial]);
+  }, [navigation]);
 
   const handleWatchAdToContinue = useCallback(async () => {
     setIsWatchingAd(true);

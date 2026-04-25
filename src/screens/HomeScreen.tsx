@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { loadStats } from '../utils/statsStorage';
 import UsernameModal from '../components/UsernameModal';
+import DailyChallengeCard from '../components/DailyChallengeCard';
 import { useUser } from '../contexts/UserContext';
 import { Colors, Radius, Spacing } from '../theme/colors';
 
@@ -134,6 +135,10 @@ export default function HomeScreen() {
             <Text style={styles.gameModeSubtitleHalf}>Race against 2 minutes</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Daily Challenge */}
+        <Text style={styles.sectionTitle}>DAILY CHALLENGE</Text>
+        <DailyChallengeCard />
 
         {/* Quick Links */}
         <Text style={styles.sectionTitle}>MORE</Text>

@@ -8,4 +8,5 @@ web-build/
 *.jks
 *.keystore
 **/gradle.properties
+CREDENTIALS.md
 

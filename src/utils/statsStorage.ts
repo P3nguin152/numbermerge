@@ -8,6 +8,9 @@ const DEFAULT_STATS: GameStats = {
   gamesPlayed: 0,
   totalMerges: 0,
   bestTile: 2,
+  fastestMergeTime: Infinity,
+  maxChainReaction: 0,
+  totalPlayTime: 0,
 };
 
 export async function loadStats(): Promise<GameStats> {
@@ -37,14 +40,17 @@ export async function updateStats(
   bestTileInGame: number
 ): Promise<GameStats> {
   const currentStats = await loadStats();
-  
+
   const newStats: GameStats = {
     highScore: Math.max(currentStats.highScore, score),
     gamesPlayed: currentStats.gamesPlayed + 1,
     totalMerges: currentStats.totalMerges + merges,
     bestTile: Math.max(currentStats.bestTile, bestTileInGame),
+    fastestMergeTime: currentStats.fastestMergeTime,
+    maxChainReaction: currentStats.maxChainReaction,
+    totalPlayTime: currentStats.totalPlayTime,
   };
-  
+
   await saveStats(newStats);
   return newStats;
 }
@@ -55,4 +61,27 @@ export async function clearStats(): Promise<void> {
   } catch (error) {
     console.error('Failed to clear stats:', error);
   }
+}
+
+export async function updateFastestMergeTime(time: number): Promise<void> {
+  const currentStats = await loadStats();
+  if (time < currentStats.fastestMergeTime) {
+    currentStats.fastestMergeTime = time;
+    await saveStats(currentStats);
+  }
+}
+
+export async function updateMaxChainReaction(count: number): Promise<void> {
+  const currentStats = await loadStats();
+  if (count > currentStats.maxChainReaction) {
+    currentStats.maxChainReaction = count;
+    await saveStats(currentStats);
+  }
+}
+
+export async function updatePlayTime(ms: number): Promise<void> {
+  if (ms <= 0) return;
+  const currentStats = await loadStats();
+  currentStats.totalPlayTime = (currentStats.totalPlayTime || 0) + ms;
+  await saveStats(currentStats);
 }

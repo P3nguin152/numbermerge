@@ -8,6 +8,13 @@ import { clearStats } from '../utils/statsStorage';
 import { Colors, Radius, Spacing } from '../theme/colors';
 import { BOARD_THEMES } from '../theme/boardThemes';
 import { useBoardTheme } from '../contexts/BoardThemeContext';
+import {
+  loadNotificationsEnabled,
+  saveNotificationsEnabled,
+} from '../utils/notificationStorage';
+import {
+  cancelAllNotifications,
+} from '../utils/notifications';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -19,9 +26,11 @@ export default function SettingsScreen() {
     theme: 'dark',
     boardTheme: 'midnight',
   });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     loadSettings().then(setSettings);
+    loadNotificationsEnabled().then(setNotificationsEnabled);
   }, []);
 
   const handleSoundToggle = async (value: boolean) => {
@@ -40,6 +49,15 @@ export default function SettingsScreen() {
     await updateSetting('vibrationEnabled', value);
     setSettings(prev => ({ ...prev, vibrationEnabled: value }));
     soundManager.setVibrationEnabled(value);
+  };
+
+  const handleNotificationsToggle = async (value: boolean) => {
+    await saveNotificationsEnabled(value);
+    setNotificationsEnabled(value);
+    
+    if (!value) {
+      await cancelAllNotifications();
+    }
   };
 
   const handleThemeToggle = async (theme: 'dark' | 'light') => {
@@ -154,6 +172,29 @@ export default function SettingsScreen() {
                 value={settings.vibrationEnabled}
                 onValueChange={handleHapticToggle}
                 trackColor={{ false: Colors.card, true: Colors.primary }}
+                thumbColor="#FFF"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Notifications Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>NOTIFICATIONS</Text>
+
+          <View style={styles.card}>
+            <View style={styles.cardItem}>
+              <View style={[styles.iconBox, { backgroundColor: Colors.goldDim }]}>
+                <Text style={styles.iconEmoji}>🔔</Text>
+              </View>
+              <View style={styles.cardItemContent}>
+                <Text style={styles.cardItemTitle}>Enable Notifications</Text>
+                <Text style={styles.cardItemSubtitle}>Daily reminders & streak alerts (max 3/day)</Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleNotificationsToggle}
+                trackColor={{ false: Colors.card, true: Colors.gold }}
                 thumbColor="#FFF"
               />
             </View>

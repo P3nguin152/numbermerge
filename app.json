@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "com.numbermerge.puzzle",
-      "versionCode": 8,
+      "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

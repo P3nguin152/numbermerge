@@ -32,6 +32,9 @@ export interface GameStats {
   gamesPlayed: number;
   totalMerges: number;
   bestTile: number;
+  fastestMergeTime: number;
+  maxChainReaction: number;
+  totalPlayTime: number;
 }
 
 export interface LeaderboardEntry {

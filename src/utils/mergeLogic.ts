@@ -24,9 +24,9 @@ export function createEmptyGrid(): (Tile | null)[][] {
   return Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
 }
 
-/** Pick a random starting tile value (2, 4, 8, 16, or 32) */
+/** Pick a random starting tile value (2, 4, 8, 16, 32, or 64) */
 export function generateNextValue(rng?: any): number {
-  const pool = [2, 4, 8, 16, 32];
+  const pool = [2, 4, 8, 16, 32, 64];
   if (rng) {
     return rng.nextItem(pool);
   }
@@ -50,6 +50,16 @@ export function isGameOver(grid: (Tile | null)[][]): boolean {
     if (!canDropInColumn(grid, col)) return true;
   }
   return false;
+}
+
+/** Check if the grid is completely empty (no tiles) */
+export function isGridEmpty(grid: (Tile | null)[][]): boolean {
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      if (grid[row][col] !== null) return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -89,7 +99,7 @@ function setColumn(grid: (Tile | null)[][], col: number, column: (Tile | null)[]
 }
 
 /** Apply gravity to every column in the whole grid */
-function applyGravityToGrid(grid: (Tile | null)[][]): void {
+export function applyGravityToGrid(grid: (Tile | null)[][]): void {
   for (let col = 0; col < GRID_COLS; col++) {
     const settled = applyGravityToColumn(getColumn(grid, col));
     setColumn(grid, col, settled);
@@ -101,7 +111,7 @@ function applyGravityToGrid(grid: (Tile | null)[][]): void {
  * Also checks for 3-in-a-row merges.
  * Returns { scoreGained, didMerge }
  */
-function mergeHorizontal(grid: (Tile | null)[][], dropColumn: number): { scoreGained: number; didMerge: boolean; tripleMergeCount: number; mergeCount: number } {
+export function mergeHorizontal(grid: (Tile | null)[][], dropColumn: number): { scoreGained: number; didMerge: boolean; tripleMergeCount: number; mergeCount: number } {
   let scoreGained = 0;
   let didMerge = false;
   let tripleMergeCount = 0;
@@ -175,7 +185,7 @@ function mergeHorizontal(grid: (Tile | null)[][], dropColumn: number): { scoreGa
  * Scan for L-shaped (right-angled) merges where 3 tiles of same value form an L.
  * Returns { scoreGained, didMerge }
  */
-function mergeLShape(grid: (Tile | null)[][]): { scoreGained: number; didMerge: boolean; tripleMergeCount: number; mergeCount: number } {
+export function mergeLShape(grid: (Tile | null)[][]): { scoreGained: number; didMerge: boolean; tripleMergeCount: number; mergeCount: number } {
   let scoreGained = 0;
   let didMerge = false;
   let tripleMergeCount = 0;
@@ -277,7 +287,7 @@ function mergeLShape(grid: (Tile | null)[][]): { scoreGained: number; didMerge: 
  * Scan every column for vertically adjacent equal pairs (bottom-up).
  * Returns { scoreGained, didMerge }
  */
-function mergeVertical(grid: (Tile | null)[][]): { scoreGained: number; didMerge: boolean; tripleMergeCount: number; mergeCount: number } {
+export function mergeVertical(grid: (Tile | null)[][]): { scoreGained: number; didMerge: boolean; tripleMergeCount: number; mergeCount: number } {
   let scoreGained = 0;
   let didMerge = false;
   let tripleMergeCount = 0;
