@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { loadStats } from '../utils/statsStorage';
 import { useUser } from '../contexts/UserContext';
 import { getAvatarOptions } from '../utils/avatarStorage';
@@ -12,7 +13,8 @@ type AchievementFilter = 'all' | 'unlocked' | 'locked';
 
 interface Achievement {
   id: number;
-  icon: string;
+  iconName: string;
+  iconColor: string;
   title: string;
   desc: string;
   unlocked: boolean;
@@ -66,11 +68,11 @@ export default function ProfileScreen() {
 
   const achievements: Achievement[] = useMemo(() => [
     {
-      id: 1, icon: '🎯', title: 'First Merge', desc: 'Complete your first merge',
+      id: 1, iconName: 'ribbon', iconColor: Colors.accent, title: 'First Merge', desc: 'Complete your first merge',
       unlocked: stats.totalMerges >= 1,
     },
     {
-      id: 2, icon: '⚡', title: 'Speed Demon', desc: 'Merge within 5 seconds',
+      id: 2, iconName: 'flash', iconColor: Colors.warning, title: 'Speed Demon', desc: 'Merge within 5 seconds',
       unlocked: stats.fastestMergeTime <= 5000,
       progress: stats.fastestMergeTime === Infinity
         ? { current: 0, target: 1, format: () => 'No merges yet' }
@@ -81,27 +83,27 @@ export default function ProfileScreen() {
           },
     },
     {
-      id: 3, icon: '🔥', title: 'Chain Reaction', desc: '5+ merges in one move',
+      id: 3, iconName: 'flame', iconColor: Colors.gold, title: 'Chain Reaction', desc: '5+ merges in one move',
       unlocked: stats.maxChainReaction >= 5,
       progress: { current: Math.min(5, stats.maxChainReaction), target: 5 },
     },
     {
-      id: 4, icon: '📅', title: 'Streak Master', desc: '7-day playing streak',
+      id: 4, iconName: 'calendar', iconColor: Colors.info, title: 'Streak Master', desc: '7-day playing streak',
       unlocked: streak >= 7,
       progress: { current: Math.min(7, streak), target: 7 },
     },
     {
-      id: 5, icon: '💎', title: 'Tile Master', desc: 'Create a 2048 tile',
+      id: 5, iconName: 'diamond', iconColor: Colors.success, title: 'Tile Master', desc: 'Create a 2048 tile',
       unlocked: stats.bestTile >= 2048,
       progress: { current: Math.min(2048, stats.bestTile), target: 2048 },
     },
     {
-      id: 6, icon: '🔥', title: 'On Fire', desc: 'Reach 5,000 points',
+      id: 6, iconName: 'flame', iconColor: Colors.danger, title: 'On Fire', desc: 'Reach 5,000 points',
       unlocked: stats.highScore >= 5000,
       progress: { current: Math.min(5000, stats.highScore), target: 5000 },
     },
     {
-      id: 7, icon: '⭐', title: 'Super Star', desc: 'Reach 10,000 points',
+      id: 7, iconName: 'star', iconColor: Colors.primary, title: 'Super Star', desc: 'Reach 10,000 points',
       unlocked: stats.highScore >= 10000,
       progress: { current: Math.min(10000, stats.highScore), target: 10000 },
     },
@@ -124,7 +126,7 @@ export default function ProfileScreen() {
         {/* Top Nav */}
         <View style={styles.topNav}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.navBtn}>
-            <Text style={styles.navBtnText}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Profile</Text>
           <View style={{ width: 42 }} />
@@ -143,7 +145,7 @@ export default function ProfileScreen() {
             <View style={styles.heroOrb2} />
 
             <View style={styles.bannerEditBadge}>
-              <Text style={styles.bannerEditText}>🎨</Text>
+              <Ionicons name="color-palette" size={14} color="#fff" />
             </View>
 
             <TouchableOpacity
@@ -153,7 +155,7 @@ export default function ProfileScreen() {
             >
               <Text style={styles.heroAvatarEmoji}>{avatar}</Text>
               <View style={styles.avatarEditBadge}>
-                <Text style={styles.avatarEditText}>✎</Text>
+                <Ionicons name="pencil" size={13} color="#fff" />
               </View>
             </TouchableOpacity>
 
@@ -165,11 +167,13 @@ export default function ProfileScreen() {
               </View>
               {streak > 0 && (
                 <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>🔥 {streak} day{streak === 1 ? '' : 's'}</Text>
+                  <Ionicons name="flame" size={12} color={Colors.gold} />
+                  <Text style={styles.heroBadgeText}> {streak} day{streak === 1 ? '' : 's'}</Text>
                 </View>
               )}
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>🏅 {unlockedCount}/{totalCount}</Text>
+                <Ionicons name="medal" size={12} color={Colors.gold} />
+                <Text style={styles.heroBadgeText}> {unlockedCount}/{totalCount}</Text>
               </View>
             </View>
           </View>
@@ -211,7 +215,11 @@ export default function ProfileScreen() {
                 style={[styles.achievementCard, !a.unlocked && styles.achievementCardLocked]}
               >
                 <View style={[styles.achievementIcon, a.unlocked ? styles.achievementIconUnlocked : styles.achievementIconLocked]}>
-                  <Text style={styles.achievementIconText}>{a.unlocked ? a.icon : '🔒'}</Text>
+                  {a.unlocked ? (
+                    <Ionicons name={a.iconName as any} size={24} color={a.iconColor} />
+                  ) : (
+                    <Ionicons name="lock-closed" size={24} color={Colors.textMuted} />
+                  )}
                 </View>
                 <View style={styles.achievementContent}>
                   <Text style={[styles.achievementTitle, !a.unlocked && styles.achievementTitleLocked]}>
@@ -233,7 +241,7 @@ export default function ProfileScreen() {
                 </View>
                 {a.unlocked && (
                   <View style={styles.achievementCheck}>
-                    <Text style={styles.achievementCheckText}>✓</Text>
+                    <Ionicons name="checkmark" size={16} color={Colors.success} />
                   </View>
                 )}
               </View>
@@ -246,12 +254,12 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>STATISTICS</Text>
         </View>
         <View style={styles.statsGrid}>
-          <StatCard icon="👑" value={stats.highScore.toLocaleString()} label="High Score" />
-          <StatCard icon="🎮" value={stats.gamesPlayed.toString()} label="Games Played" />
-          <StatCard icon="🔗" value={stats.totalMerges.toLocaleString()} label="Total Merges" />
-          <StatCard icon="💎" value={stats.bestTile.toString()} label="Best Tile" />
-          <StatCard icon="⏱️" value={formatPlayTime(stats.totalPlayTime)} label="Play Time" />
-          <StatCard icon="📅" value={streak.toString()} label="Day Streak" />
+          <StatCard iconName="trophy" iconColor={Colors.gold} value={stats.highScore.toLocaleString()} label="High Score" />
+          <StatCard iconName="game-controller" iconColor={Colors.accent} value={stats.gamesPlayed.toString()} label="Games Played" />
+          <StatCard iconName="link" iconColor={Colors.info} value={stats.totalMerges.toLocaleString()} label="Total Merges" />
+          <StatCard iconName="diamond" iconColor={Colors.success} value={stats.bestTile.toString()} label="Best Tile" />
+          <StatCard iconName="timer" iconColor={Colors.warning} value={formatPlayTime(stats.totalPlayTime)} label="Play Time" />
+          <StatCard iconName="calendar" iconColor={Colors.primary} value={streak.toString()} label="Day Streak" />
         </View>
       </ScrollView>
 
@@ -321,10 +329,10 @@ export default function ProfileScreen() {
   );
 }
 
-function StatCard({ icon, value, label }: { icon: string; value: string; label: string }) {
+function StatCard({ iconName, iconColor, value, label }: { iconName: string; iconColor: string; value: string; label: string }) {
   return (
     <View style={styles.statCard}>
-      <Text style={styles.statIcon}>{icon}</Text>
+      <Ionicons name={iconName as any} size={24} color={iconColor} />
       <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -350,7 +358,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.cardBorder,
     alignItems: 'center', justifyContent: 'center',
   },
-  navBtnText: { color: Colors.textPrimary, fontSize: 22, fontWeight: '600' },
   navTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
 
   // Hero
@@ -555,7 +562,7 @@ const styles = StyleSheet.create({
     width: '47%',
     alignItems: 'center',
   },
-  statIcon: { fontSize: 24, marginBottom: 6 },
+  statIcon: { marginBottom: 6 },
   statValue: { color: Colors.textPrimary, fontSize: 20, fontWeight: '900' },
   statLabel: { color: Colors.textMuted, fontSize: 11, marginTop: 6 },
 

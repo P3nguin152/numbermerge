@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius, Spacing } from '../theme/colors';
 import { markTimeAttackTutorialCompleted } from '../utils/tutorialStorage';
 
@@ -12,25 +13,29 @@ interface TimeAttackTutorialOverlayProps {
 const tutorialSteps = [
   {
     id: 1,
-    emoji: '⏱️',
+    iconName: 'timer',
+    iconColor: Colors.accent,
     title: 'Race Against Time',
     description: 'You have 2 minutes to score as many points as possible!',
   },
   {
     id: 2,
-    emoji: '🔥',
+    iconName: 'flame',
+    iconColor: Colors.warning,
     title: 'Earn Bonus Time',
     description: 'Regular merges give +1 second. Triple merges give +3 seconds!',
   },
   {
     id: 3,
-    emoji: '💎',
+    iconName: 'diamond',
+    iconColor: Colors.success,
     title: 'Triple Merges',
     description: 'Match 3 tiles in a row, column, or L-shape for a ×4 merge and +3s bonus.',
   },
   {
     id: 4,
-    emoji: '🚀',
+    iconName: 'rocket',
+    iconColor: Colors.primary,
     title: 'Max Time Cap',
     description: 'Time bonuses cap at 3 minutes. Keep merging to extend your run!',
   },
@@ -98,8 +103,8 @@ export default function TimeAttackTutorialOverlay({ visible, onClose }: TimeAtta
 
           {/* Step Content */}
           <View style={styles.stepContent}>
-            <View style={styles.emojiContainer}>
-              <Text style={styles.emoji}>{step.emoji}</Text>
+            <View style={[styles.emojiContainer, { backgroundColor: step.iconColor + '20' }]}>
+              <Ionicons name={step.iconName as any} size={40} color={step.iconColor} />
             </View>
             <Text style={styles.title}>{step.title}</Text>
             <Text style={styles.description}>{step.description}</Text>
@@ -180,9 +185,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
-  },
-  emoji: {
-    fontSize: 40,
   },
   title: {
     color: Colors.textPrimary,

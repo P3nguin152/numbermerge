@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { View } from 'react-native';
 import { DevSettings } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { initializeAdTracking, logAdImpression, getAggregatedStats } from '../services/adTrackingService';
 import mobileAds, { 
   MaxAdContentRating,
   InterstitialAd,
@@ -55,7 +54,6 @@ export function AdProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initializeAds();
-    initializeAdTracking(); // Initialize ad tracking
     
     // Cleanup on unmount
     return () => {
@@ -88,11 +86,6 @@ export function AdProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             console.error('Failed to open Ad Inspector:', error);
           }
-        });
-
-        // Add ad revenue stats to dev menu
-        DevSettings.addMenuItem('View Ad Revenue Stats', async () => {
-          await getAggregatedStats();
         });
 
         // Add daily challenge completion to dev menu
@@ -176,7 +169,6 @@ export function AdProvider({ children }: { children: ReactNode }) {
 
     try {
       await interstitialAdRef.current.show();
-      logAdImpression('interstitial'); // Track impression
       return true;
     } catch (error) {
       console.error('Error showing interstitial ad:', error);
@@ -237,7 +229,6 @@ export function AdProvider({ children }: { children: ReactNode }) {
       );
 
       await rewardedAdRef.current.show();
-      logAdImpression('rewarded'); // Track impression
       unsubscribeEarned();
 
       return { rewarded: rewardEarned, amount: rewardAmount };
@@ -278,9 +269,7 @@ export function AdBanner() {
         unitId={BANNER_AD_UNIT_ID}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={AD_REQUEST_OPTIONS}
-        onAdLoaded={() => {
-          logAdImpression('banner');
-        }}
+        onAdLoaded={() => {}}
       />
     </View>
   );

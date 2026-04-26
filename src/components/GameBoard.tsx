@@ -9,11 +9,13 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 import { useNavigation } from '@react-navigation/native';
 import Grid from './Grid';
 import TutorialOverlay from './TutorialOverlay';
+import GameOverModal from './GameOverModal';
 import { GameState } from '../types/game';
 import {
   createEmptyGrid,
@@ -29,6 +31,11 @@ import { settleGridWithAnimation, countPotentialMerges } from '../utils/mergeAni
 import { updateStats, loadStats, updateFastestMergeTime, updateMaxChainReaction, updatePlayTime } from '../utils/statsStorage';
 import { saveGameState, loadGameState, clearGameState } from '../utils/gameStorage';
 import { soundManager } from '../utils/soundManager';
+
+const generateDefaultUsername = (): string => {
+  const randomNum = Math.floor(Math.random() * 90000) + 10000;
+  return `user${randomNum}`;
+};
 import { loadSettings } from '../utils/settingsStorage';
 import { incrementExitCount } from '../utils/exitStorage';
 import { useUser } from '../contexts/UserContext';
@@ -83,6 +90,7 @@ function GameBoard() {
   const [lastScoreForRankFetch, setLastScoreForRankFetch] = useState(0);
   const [lastMergeTime, setLastMergeTime] = useState<number | null>(null);
   const [isAnimatingMerges, setIsAnimatingMerges] = useState(false);
+  const [scoreTapCount, setScoreTapCount] = useState(0);
   const gameStartTimeRef = useRef<number>(Date.now());
 
   // Initialize sound manager and settings
@@ -155,7 +163,7 @@ function GameBoard() {
   // Track when user leaves screen via swipe gesture
   useFocusEffect(
     useCallback(() => {
-      const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
+      const unsubscribe = navigation.addListener('beforeRemove', async () => {
         // Save game state before leaving
         if (!gameState.gameOver) {
           await saveGameState(gameState, merges, bestTile, 'classic');
@@ -262,24 +270,23 @@ function GameBoard() {
       soundManager.playSound('gameOver');
       AccessibilityInfo.announceForAccessibility(`Game over. Final score ${gameState.score}.`);
 
-      // Submit score to leaderboard if user has username
-      if (username) {
-        setIsSubmittingScore(true);
-        leaderboardService.submitScore(
-          username,
-          gameState.score,
-          bestTile,
-          totalGamesPlayed + 1
-        ).then(result => {
-          if (!result.success) {
-            console.warn('Score submission warning:', result.error);
-          }
-        }).catch(err => {
-          console.error('Failed to submit score:', err);
-        }).finally(() => {
-          setIsSubmittingScore(false);
-        });
-      }
+      // Submit score to leaderboard (use generated username if user hasn't registered)
+      const leaderboardUsername = username || generateDefaultUsername();
+      setIsSubmittingScore(true);
+      leaderboardService.submitScore(
+        leaderboardUsername,
+        gameState.score,
+        bestTile,
+        totalGamesPlayed + 1
+      ).then(result => {
+        if (!result.success) {
+          console.warn('Score submission warning:', result.error);
+        }
+      }).catch(err => {
+        console.error('Failed to submit score:', err);
+      }).finally(() => {
+        setIsSubmittingScore(false);
+      });
       return;
     }
 
@@ -390,24 +397,23 @@ function GameBoard() {
           setShowNewBest(true);
         }
 
-        // Submit score to leaderboard if user has username
-        if (username) {
-          setIsSubmittingScore(true);
-          leaderboardService.submitScore(
-            username,
-            totalScore,
-            maxTile,
-            totalGamesPlayed + 1
-          ).then(result => {
-            if (!result.success) {
-              console.warn('Score submission warning:', result.error);
-            }
-          }).catch(err => {
-            console.error('Failed to submit score:', err);
-          }).finally(() => {
-            setIsSubmittingScore(false);
-          });
-        }
+        // Submit score to leaderboard (use generated username if user hasn't registered)
+        const leaderboardUsername = username || generateDefaultUsername();
+        setIsSubmittingScore(true);
+        leaderboardService.submitScore(
+          leaderboardUsername,
+          totalScore,
+          maxTile,
+          totalGamesPlayed + 1
+        ).then(result => {
+          if (!result.success) {
+            console.warn('Score submission warning:', result.error);
+          }
+        }).catch(err => {
+          console.error('Failed to submit score:', err);
+        }).finally(() => {
+          setIsSubmittingScore(false);
+        });
       }
 
       setGameState({
@@ -489,24 +495,23 @@ function GameBoard() {
           setShowNewBest(true);
         }
 
-        // Submit score to leaderboard if user has username
-        if (username) {
-          setIsSubmittingScore(true);
-          leaderboardService.submitScore(
-            username,
-            totalScore,
-            maxTile,
-            totalGamesPlayed + 1
-          ).then(result => {
-            if (!result.success) {
-              console.warn('Score submission warning:', result.error);
-            }
-          }).catch(err => {
-            console.error('Failed to submit score:', err);
-          }).finally(() => {
-            setIsSubmittingScore(false);
-          });
-        }
+        // Submit score to leaderboard (use generated username if user hasn't registered)
+        const leaderboardUsername = username || generateDefaultUsername();
+        setIsSubmittingScore(true);
+        leaderboardService.submitScore(
+          leaderboardUsername,
+          totalScore,
+          maxTile,
+          totalGamesPlayed + 1
+        ).then(result => {
+          if (!result.success) {
+            console.warn('Score submission warning:', result.error);
+          }
+        }).catch(err => {
+          console.error('Failed to submit score:', err);
+        }).finally(() => {
+          setIsSubmittingScore(false);
+        });
       }
 
       setGameState({
@@ -586,9 +591,63 @@ function GameBoard() {
     navigation.goBack();
   }, [navigation]);
 
+  const handleScorePress = useCallback(() => {
+    setScoreTapCount(prev => {
+      const newCount = prev + 1;
+      if (newCount >= 3) {
+        // Dev feature: Set score to 100,092 and populate grid with high tiles
+        const newGrid = createEmptyGrid();
+        
+        // High tiles to place (5 fairly high ones + others)
+        const highTiles = [8192, 4096, 2048, 2048, 1024, 512, 512, 256, 128, 128, 64, 64, 32, 32, 16];
+        
+        // Place tiles randomly in the grid
+        let tileIndex = 0;
+        const positions = [];
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            positions.push({ row: r, col: c });
+          }
+        }
+        
+        // Shuffle positions
+        for (let i = positions.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [positions[i], positions[j]] = [positions[j], positions[i]];
+        }
+        
+        // Place high tiles
+        for (let i = 0; i < highTiles.length && i < positions.length; i++) {
+          const pos = positions[i];
+          if (newGrid[pos.row]) {
+            newGrid[pos.row][pos.col] = {
+              id: Math.random().toString(36).slice(2, 11),
+              value: highTiles[i],
+              row: pos.row,
+              col: pos.col,
+              isFalling: false,
+              fromRow: pos.row,
+              fromCol: pos.col,
+              isMerged: false,
+            };
+          }
+        }
+        
+        setGameState(prev => ({ ...prev, score: 100092, grid: newGrid }));
+        setPersonalBest(100092);
+        setBestTile(8192);
+        soundManager.playSound('merge');
+        return 0;
+      }
+      // Reset after 1 second if not triple-tapped
+      setTimeout(() => setScoreTapCount(0), 1000);
+      return newCount;
+    });
+  }, []);
+
   const handleWatchAdToContinue = useCallback(async () => {
     setIsWatchingAd(true);
-    const { rewarded } = await showRewarded();
+    await showRewarded();
     setIsWatchingAd(false);
 
     // Proceed regardless of reward detection (test ads may not trigger rewards)
@@ -659,10 +718,10 @@ function GameBoard() {
         </TouchableOpacity>
 
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
+          <TouchableOpacity style={styles.statItem} onPress={handleScorePress} activeOpacity={0.7}>
             <Text style={styles.statLabel}>SCORE</Text>
             <Animated.Text style={[styles.statValue, scoreAnimatedStyle]}>{gameState.score.toLocaleString()}</Animated.Text>
-          </View>
+          </TouchableOpacity>
           {globalRank !== null && (
             <View style={styles.statDivider} />
           )}
@@ -681,7 +740,9 @@ function GameBoard() {
           accessibilityRole="button"
           accessibilityLabel={isPaused ? 'Resume game' : 'Pause game'}
         >
-          <Animated.Text style={[styles.pauseIcon, pauseButtonAnimatedStyle]}>{isPaused ? '▶' : '⏸'}</Animated.Text>
+          <Animated.View style={pauseButtonAnimatedStyle}>
+            <Ionicons name={isPaused ? 'play' : 'pause'} size={20} color={Colors.textPrimary} />
+          </Animated.View>
         </TouchableOpacity>
       </View>
 
@@ -714,7 +775,7 @@ function GameBoard() {
               key={i}
               style={styles.arrowButton}
               onPress={() => handleColumnPress(i)}
-              activeOpacity={0.7}
+              activeOpacity={1}
               accessibilityRole="button"
               accessibilityLabel={`Drop tile in column ${i + 1}`}
             >
@@ -741,69 +802,23 @@ function GameBoard() {
       {/* Banner Ad */}
       {!gameState.gameOver && !isPaused && <AdBanner />}
 
-      {/* Game Over Overlay */}
-      {gameState.gameOver && (
-        <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
-          <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>💥</Text>
-            <Text style={styles.overlayTitle}>Game Over</Text>
-            <View style={styles.overlayScoreRow}>
-              <Text style={styles.overlayScoreLabel}>Final Score</Text>
-              <Text style={styles.overlayScoreValue}>{gameState.score.toLocaleString()}</Text>
-            </View>
-            {didBeatPersonalBest && (
-              <View style={styles.recordBadge}>
-                <Text style={styles.recordBadgeText}>New personal best</Text>
-              </View>
-            )}
-            {isSubmittingScore && (
-              <View style={styles.submittingRow}>
-                <ActivityIndicator color={Colors.primaryLight} size="small" />
-                <Text style={styles.submittingText}>Submitting score...</Text>
-              </View>
-            )}
-            <TouchableOpacity
-              style={[styles.overlayBtn, isSubmittingScore && styles.overlayBtnDisabled]}
-              onPress={initializeGame}
-              activeOpacity={0.85}
-              disabled={isSubmittingScore}
-              accessibilityRole="button"
-              accessibilityLabel={isSubmittingScore ? 'Submitting score' : 'Play again'}
-            >
-              <Text style={styles.overlayBtnText}>
-                {isSubmittingScore ? 'SUBMITTING...' : 'PLAY AGAIN'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.overlayBtnRewarded, isWatchingAd && styles.overlayBtnDisabled]}
-              onPress={handleWatchAdToContinue}
-              activeOpacity={0.85}
-              disabled={isWatchingAd}
-              accessibilityRole="button"
-              accessibilityLabel={isWatchingAd ? 'Loading ad' : 'Watch ad to continue'}
-            >
-              <Text style={styles.overlayBtnRewardedText}>
-                {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD TO CONTINUE'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.overlayBtnSecondary}
-              onPress={handleQuit}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Back to home"
-            >
-              <Text style={styles.overlayBtnSecondaryText}>Back to Home</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
-      )}
+      {/* Game Over Modal */}
+      <GameOverModal
+        visible={gameState.gameOver}
+        score={gameState.score}
+        didBeatPersonalBest={didBeatPersonalBest}
+        isSubmittingScore={isSubmittingScore}
+        isWatchingAd={isWatchingAd}
+        onPlayAgain={initializeGame}
+        onWatchAdToContinue={handleWatchAdToContinue}
+        onQuit={handleQuit}
+      />
 
       {/* Pause Menu Overlay */}
       {isPaused && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
           <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>⏸</Text>
+            <Ionicons name="pause-circle" size={64} color={Colors.primary} />
             <Text style={styles.overlayTitle}>Paused</Text>
             <TouchableOpacity
               style={styles.overlayBtn}
@@ -812,7 +827,8 @@ function GameBoard() {
               accessibilityRole="button"
               accessibilityLabel="Resume game"
             >
-              <Text style={styles.overlayBtnText}>▶  RESUME</Text>
+              <Ionicons name="play" size={20} color={Colors.surface} />
+              <Text style={styles.overlayBtnText}>Resume</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.overlayBtnSecondary}
@@ -821,7 +837,8 @@ function GameBoard() {
               accessibilityRole="button"
               accessibilityLabel="Restart game"
             >
-              <Text style={styles.overlayBtnSecondaryText}>🔄  Restart</Text>
+              <Ionicons name="refresh" size={20} color={Colors.textPrimary} />
+              <Text style={styles.overlayBtnSecondaryText}>Restart</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.overlayBtnSecondary, { borderColor: Colors.danger }]}
@@ -830,7 +847,8 @@ function GameBoard() {
               accessibilityRole="button"
               accessibilityLabel="Quit game"
             >
-              <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>✖  Quit</Text>
+              <Ionicons name="close" size={20} color={Colors.danger} />
+              <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>Quit</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -1036,53 +1054,21 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  overlayEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.lg,
-  },
   overlayTitle: {
     color: Colors.textPrimary,
     fontSize: 28,
     fontWeight: '900',
     marginBottom: Spacing.lg,
   },
-  overlayScoreRow: {
-    alignItems: 'center',
-    marginBottom: Spacing.xxl,
-  },
-  overlayScoreLabel: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  overlayScoreValue: {
-    color: Colors.warning,
-    fontSize: 36,
-    fontWeight: '900',
-  },
-  recordBadge: {
-    backgroundColor: Colors.successDim,
-    borderColor: Colors.success,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  recordBadgeText: {
-    color: Colors.success,
-    fontSize: 13,
-    fontWeight: '800',
-  },
   overlayBtn: {
     width: '100%',
     backgroundColor: Colors.primary,
     borderRadius: Radius.sm,
     paddingVertical: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1099,47 +1085,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
   },
-  overlayBtnRewarded: {
-    width: '100%',
-    backgroundColor: Colors.accent,
-    borderRadius: Radius.sm,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: Spacing.md,
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  overlayBtnRewardedText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
   overlayBtnSecondary: {
     width: '100%',
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     borderRadius: Radius.sm,
     paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
     marginTop: Spacing.md,
   },
   overlayBtnSecondaryText: {
     color: Colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
-  },
-  submittingText: {
-    color: Colors.textMuted,
-    fontSize: 13,
-  },
-  submittingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
   },
 });

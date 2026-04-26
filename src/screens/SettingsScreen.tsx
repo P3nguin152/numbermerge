@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet, Alert, Linking, TextInput, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { loadSettings, updateSetting, GameSettings } from '../utils/settingsStorage';
 import { soundManager } from '../utils/soundManager';
 import { clearGameState } from '../utils/gameStorage';
@@ -8,6 +9,8 @@ import { clearStats } from '../utils/statsStorage';
 import { Colors, Radius, Spacing } from '../theme/colors';
 import { BOARD_THEMES } from '../theme/boardThemes';
 import { useBoardTheme } from '../contexts/BoardThemeContext';
+import { useUser } from '../contexts/UserContext';
+import { leaderboardService } from '../services/leaderboardService';
 import {
   loadNotificationsEnabled,
   saveNotificationsEnabled,
@@ -19,6 +22,7 @@ import {
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { boardTheme, setBoardTheme } = useBoardTheme();
+  const { username, setUsername } = useUser();
   const [settings, setSettings] = useState<GameSettings>({
     soundEnabled: true,
     musicEnabled: true,
@@ -27,6 +31,10 @@ export default function SettingsScreen() {
     boardTheme: 'midnight',
   });
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
 
   useEffect(() => {
     loadSettings().then(setSettings);
@@ -98,7 +106,7 @@ export default function SettingsScreen() {
   const handleRateApp = async () => {
     const packageName = 'com.numbermerge.puzzle';
     const url = `market://details?id=${packageName}`;
-    
+
     try {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
@@ -111,16 +119,88 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleUsernameEdit = () => {
+    setNewUsername(username || '');
+    setUsernameError('');
+    setShowUsernameModal(true);
+  };
+
+  const handleUsernameUpdate = async () => {
+    if (!newUsername.trim()) {
+      setUsernameError('Please enter a username');
+      return;
+    }
+
+    if (newUsername.length < 3) {
+      setUsernameError('Username must be at least 3 characters');
+      return;
+    }
+
+    if (newUsername.length > 20) {
+      setUsernameError('Username must be less than 20 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      setUsernameError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    setIsUpdatingUsername(true);
+    setUsernameError('');
+
+    try {
+      const isAvailable = await leaderboardService.isUsernameAvailable(newUsername.trim());
+
+      if (!isAvailable) {
+        setUsernameError('Username is already taken');
+        setIsUpdatingUsername(false);
+        return;
+      }
+
+      await setUsername(newUsername.trim());
+      Alert.alert('Success', 'Username updated successfully!');
+      setShowUsernameModal(false);
+      setNewUsername('');
+    } catch (err) {
+      setUsernameError('Failed to update username. Please try again.');
+    } finally {
+      setIsUpdatingUsername(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
           <View style={{ width: 42 }} />
+        </View>
+
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ACCOUNT</Text>
+
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.cardItem}
+              activeOpacity={0.7}
+              onPress={handleUsernameEdit}
+            >
+              <View style={[styles.iconBox, { backgroundColor: Colors.primaryDim }]}>
+                <Ionicons name="person" size={18} color={Colors.primary} />
+              </View>
+              <View style={styles.cardItemContent}>
+                <Text style={styles.cardItemTitle}>Username</Text>
+                <Text style={styles.cardItemSubtitle}>{username || 'Not set'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Sound Section */}
@@ -130,7 +210,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <View style={[styles.cardItem, styles.cardItemBorder]}>
               <View style={[styles.iconBox, { backgroundColor: Colors.accentDim }]}>
-                <Text style={styles.iconEmoji}>🔊</Text>
+                <Ionicons name="volume-high" size={18} color={Colors.accent} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Sound Effects</Text>
@@ -146,7 +226,7 @@ export default function SettingsScreen() {
 
             <View style={[styles.cardItem, styles.cardItemBorder]}>
               <View style={[styles.iconBox, { backgroundColor: Colors.primaryDim }]}>
-                <Text style={styles.iconEmoji}>🎵</Text>
+                <Ionicons name="musical-notes" size={18} color={Colors.primary} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Background Music</Text>
@@ -162,7 +242,7 @@ export default function SettingsScreen() {
 
             <View style={styles.cardItem}>
               <View style={[styles.iconBox, { backgroundColor: Colors.warningDim }]}>
-                <Text style={styles.iconEmoji}>📳</Text>
+                <Ionicons name="phone-portrait" size={18} color={Colors.warning} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Haptic Feedback</Text>
@@ -185,7 +265,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <View style={styles.cardItem}>
               <View style={[styles.iconBox, { backgroundColor: Colors.goldDim }]}>
-                <Text style={styles.iconEmoji}>🔔</Text>
+                <Ionicons name="notifications" size={18} color={Colors.gold} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={styles.cardItemTitle}>Enable Notifications</Text>
@@ -221,7 +301,7 @@ export default function SettingsScreen() {
                   <View style={[styles.themeSwatch, { backgroundColor: theme.boardBg, borderColor: theme.boardBorder }]}>
                     {isActive && (
                       <View style={styles.themeSwatchCheck}>
-                        <Text style={styles.themeSwatchCheckIcon}>✓</Text>
+                        <Ionicons name="checkmark" size={10} color="#fff" />
                       </View>
                     )}
                     <View style={styles.themeSwatchDots}>
@@ -257,7 +337,7 @@ export default function SettingsScreen() {
               </View>
               {settings.theme === 'dark' && (
                 <View style={styles.checkBadge}>
-                  <Text style={styles.checkIcon}>✓</Text>
+                  <Ionicons name="checkmark" size={16} color={Colors.success} />
                 </View>
               )}
             </TouchableOpacity>
@@ -276,7 +356,7 @@ export default function SettingsScreen() {
               </View>
               {settings.theme === 'light' && (
                 <View style={styles.checkBadge}>
-                  <Text style={styles.checkIcon}>✓</Text>
+                  <Ionicons name="checkmark" size={16} color={Colors.success} />
                 </View>
               )}
             </TouchableOpacity>
@@ -294,13 +374,13 @@ export default function SettingsScreen() {
               onPress={handleResetData}
             >
               <View style={[styles.iconBox, { backgroundColor: Colors.dangerDim }]}>
-                <Text style={styles.iconEmoji}>🗑️</Text>
+                <Ionicons name="trash" size={18} color={Colors.danger} />
               </View>
               <View style={styles.cardItemContent}>
                 <Text style={[styles.cardItemTitle, styles.dangerText]}>Reset All Data</Text>
                 <Text style={styles.cardItemSubtitle}>Clear progress, stats & settings</Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+              <Ionicons name="chevron-forward" size={22} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -321,13 +401,65 @@ export default function SettingsScreen() {
                 <Text style={styles.cardItemTitle}>Rate the App</Text>
                 <Text style={styles.cardItemSubtitle}>Share your feedback</Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+              <Ionicons name="chevron-forward" size={22} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Username Edit Modal */}
+      <Modal
+        visible={showUsernameModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowUsernameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Edit Username</Text>
+            <Text style={styles.modalSubtitle}>
+              Choose a unique username to appear on the global leaderboard
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter username"
+              placeholderTextColor="#718096"
+              value={newUsername}
+              onChangeText={setNewUsername}
+              autoCapitalize="none"
+              autoFocus
+              maxLength={20}
+            />
+
+            {usernameError ? <Text style={styles.modalErrorText}>{usernameError}</Text> : null}
+
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => setShowUsernameModal(false)}
+                disabled={isUpdatingUsername}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalSubmitButton]}
+                onPress={handleUsernameUpdate}
+                disabled={isUpdatingUsername}
+              >
+                {isUpdatingUsername ? (
+                  <Text style={styles.modalSubmitButtonText}>Updating...</Text>
+                ) : (
+                  <Text style={styles.modalSubmitButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -357,11 +489,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backBtnText: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
   },
   headerTitle: {
     color: Colors.textPrimary,
@@ -407,9 +534,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconEmoji: {
-    fontSize: 18,
-  },
   cardItemContent: {
     flex: 1,
   },
@@ -431,20 +555,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkIcon: {
-    color: Colors.success,
-    fontSize: 16,
-    fontWeight: '700',
-  },
   versionText: {
     color: Colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
-  },
-  chevron: {
-    color: Colors.textMuted,
-    fontSize: 24,
-    fontWeight: '300',
   },
   themeGrid: {
     flexDirection: 'row',
@@ -483,11 +597,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  themeSwatchCheckIcon: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '800',
   },
   themeSwatchDots: {
     flexDirection: 'row',
@@ -536,5 +645,85 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: Colors.danger,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  modalContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.xxl,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  modalTitle: {
+    color: Colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: Spacing.xxl,
+    lineHeight: 20,
+  },
+  modalInput: {
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    borderRadius: Radius.sm,
+    padding: 16,
+    color: Colors.textPrimary,
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  modalErrorText: {
+    color: Colors.danger,
+    fontSize: 13,
+    marginBottom: Spacing.lg,
+    textAlign: 'center',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  modalCancelButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalSubmitButton: {
+    backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalSubmitButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

@@ -60,7 +60,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const setUsername = async (newUsername: string) => {
     try {
-      // Check if this is first-time account creation (transitioning from no account to having one)
+      // Check if this is first-time account creation (transitioning from no username to having one)
       const isFirstTimeAccount = username === null;
 
       if (isFirstTimeAccount) {
@@ -68,20 +68,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         await clearGameState('classic');
         await clearGameState('timeAttack');
         await clearGameState('limitedMoves');
-        
+
         // Clear stats
         await clearStats();
-        
+
         // Reset tutorials
         await resetTutorial();
         await resetTimeAttackTutorial();
-        
+
         // Reset power-ups daily usage
         await resetDailyPowerups();
-        
+
         // Clear daily completion
         await AsyncStorage.removeItem(DAILY_COMPLETED_KEY);
-        
+
         // Reset streak
         await setStreakCount(0);
         setStreakState(0);

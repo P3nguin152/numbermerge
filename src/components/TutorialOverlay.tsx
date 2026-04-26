@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius, Spacing } from '../theme/colors';
 import { markTutorialCompleted } from '../utils/tutorialStorage';
 
@@ -12,25 +13,29 @@ interface TutorialOverlayProps {
 const tutorialSteps = [
   {
     id: 1,
-    emoji: '🎯',
+    iconName: 'finger-print',
+    iconColor: Colors.accent,
     title: 'Tap to Drop',
     description: 'Tap any column arrow to drop a tile. The tile will fall to the bottom.',
   },
   {
     id: 2,
-    emoji: '🔗',
+    iconName: 'link',
+    iconColor: Colors.primary,
     title: 'Match & Merge',
     description: 'When two tiles with the same number touch, they merge into one with double the value!',
   },
   {
     id: 3,
-    emoji: '⚡',
+    iconName: 'flash',
+    iconColor: Colors.warning,
     title: 'Chain Reactions',
     description: 'Merges can trigger more merges! Build combos for massive scores.',
   },
   {
     id: 4,
-    emoji: '💎',
+    iconName: 'diamond',
+    iconColor: Colors.success,
     title: 'Reach 2048',
     description: 'Keep merging tiles to reach the highest numbers. Can you get to 2048?',
   },
@@ -98,8 +103,8 @@ export default function TutorialOverlay({ visible, onClose }: TutorialOverlayPro
 
           {/* Step Content */}
           <View style={styles.stepContent}>
-            <View style={styles.emojiContainer}>
-              <Text style={styles.emoji}>{step.emoji}</Text>
+            <View style={[styles.emojiContainer, { backgroundColor: step.iconColor + '20' }]}>
+              <Ionicons name={step.iconName as any} size={40} color={step.iconColor} />
             </View>
             <Text style={styles.title}>{step.title}</Text>
             <Text style={styles.description}>{step.description}</Text>
@@ -180,9 +185,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
-  },
-  emoji: {
-    fontSize: 40,
   },
   title: {
     color: Colors.textPrimary,

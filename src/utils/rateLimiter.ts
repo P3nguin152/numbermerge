@@ -80,10 +80,10 @@ class RateLimiter {
 }
 
 // Create rate limiters for different API types
-export const scoreSubmissionLimiter = new RateLimiter(5, 60000); // 5 requests per minute
-export const leaderboardFetchLimiter = new RateLimiter(10, 60000); // 10 requests per minute
-export const usernameCheckLimiter = new RateLimiter(3, 60000); // 3 requests per minute
-export const profileFetchLimiter = new RateLimiter(10, 60000); // 10 requests per minute
+export const scoreSubmissionLimiter = new RateLimiter(20, 60000); // 20 requests per minute
+export const leaderboardFetchLimiter = new RateLimiter(30, 60000); // 30 requests per minute
+export const usernameCheckLimiter = new RateLimiter(10, 60000); // 10 requests per minute
+export const profileFetchLimiter = new RateLimiter(30, 60000); // 30 requests per minute
 
 /**
  * Wrapper for API calls with rate limiting

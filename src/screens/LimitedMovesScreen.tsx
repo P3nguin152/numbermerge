@@ -9,6 +9,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import Grid from '../components/Grid';
 import TutorialOverlay from '../components/TutorialOverlay';
 import { GameState } from '../types/game';
@@ -185,6 +186,7 @@ function LimitedMovesScreen() {
       }, 800);
       return () => clearTimeout(timeout);
     }
+    return undefined;
   }, [moveBonus, bonusOpacity, bonusTranslateY]);
 
   const handleColumnPress = useCallback((col: number) => {
@@ -203,25 +205,6 @@ function LimitedMovesScreen() {
       updateStats(gameState.score, merges, bestTile);
       soundManager.playSound('gameOver');
       AccessibilityInfo.announceForAccessibility(`Game over. Final score ${gameState.score}.`);
-
-      // Submit score to leaderboard if user has username
-      if (username) {
-        setIsSubmittingScore(true);
-        leaderboardService.submitScore(
-          username,
-          gameState.score,
-          bestTile,
-          totalGamesPlayed + 1
-        ).then(result => {
-          if (!result.success) {
-            console.warn('Score submission warning:', result.error);
-          }
-        }).catch(err => {
-          console.error('Failed to submit score:', err);
-        }).finally(() => {
-          setIsSubmittingScore(false);
-        });
-      }
       return;
     }
 
@@ -288,25 +271,6 @@ function LimitedMovesScreen() {
       if (beatPersonalBest && !showNewBest) {
         setDidBeatPersonalBest(true);
         setShowNewBest(true);
-      }
-
-      // Submit score to leaderboard if user has username
-      if (username) {
-        setIsSubmittingScore(true);
-        leaderboardService.submitScore(
-          username,
-          totalScore,
-          maxTile,
-          totalGamesPlayed + 1
-        ).then(result => {
-          if (!result.success) {
-            console.warn('Score submission warning:', result.error);
-          }
-        }).catch(err => {
-          console.error('Failed to submit score:', err);
-        }).finally(() => {
-          setIsSubmittingScore(false);
-        });
       }
 
       setGameState({
@@ -403,7 +367,7 @@ function LimitedMovesScreen() {
 
   const handleWatchAdToContinue = useCallback(async () => {
     setIsWatchingAd(true);
-    const { rewarded } = await showRewarded();
+    await showRewarded();
     setIsWatchingAd(false);
 
     // Proceed regardless of reward detection (test ads may not trigger rewards)
@@ -468,7 +432,7 @@ function LimitedMovesScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back to home"
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
@@ -496,7 +460,9 @@ function LimitedMovesScreen() {
           accessibilityRole="button"
           accessibilityLabel={isPaused ? 'Resume game' : 'Pause game'}
         >
-          <Animated.Text style={[styles.pauseIcon, pauseButtonAnimatedStyle]}>⏸</Animated.Text>
+          <Animated.View style={pauseButtonAnimatedStyle}>
+            <Ionicons name={isPaused ? 'play' : 'pause'} size={20} color={Colors.textPrimary} />
+          </Animated.View>
         </TouchableOpacity>
       </View>
 
@@ -534,7 +500,9 @@ function LimitedMovesScreen() {
               accessibilityLabel={`Drop tile in column ${i + 1}`}
               disabled={movesRemaining <= 0}
             >
-              <Animated.Text style={[styles.arrowText, movesRemaining <= 0 && styles.arrowTextDisabled, arrowAnimatedStyle]}>▼</Animated.Text>
+              <Animated.View style={[arrowAnimatedStyle]}>
+                <Ionicons name="chevron-down" size={16} color={Colors.primary} style={{ opacity: 0.6 }} />
+              </Animated.View>
             </TouchableOpacity>
           );
         })}
@@ -552,7 +520,7 @@ function LimitedMovesScreen() {
       {gameState.gameOver && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
           <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>💥</Text>
+            <Ionicons name="skull" size={48} color={Colors.danger} />
             <Text style={styles.overlayTitle}>Out of Moves!</Text>
             <View style={styles.overlayScoreRow}>
               <Text style={styles.overlayScoreLabel}>Final Score</Text>
@@ -590,7 +558,7 @@ function LimitedMovesScreen() {
               accessibilityLabel={isWatchingAd ? 'Loading ad' : 'Watch ad to continue'}
             >
               <Text style={styles.overlayBtnRewardedText}>
-                {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD FOR +5 MOVES'}
+                {isWatchingAd ? 'LOADING...' : 'WATCH AD FOR +5 MOVES'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -610,7 +578,7 @@ function LimitedMovesScreen() {
       {isPaused && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
           <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>⏸</Text>
+            <Ionicons name="pause-circle" size={48} color={Colors.textPrimary} />
             <Text style={styles.overlayTitle}>Paused</Text>
             <TouchableOpacity
               style={styles.overlayBtn}
@@ -619,7 +587,7 @@ function LimitedMovesScreen() {
               accessibilityRole="button"
               accessibilityLabel="Resume game"
             >
-              <Text style={styles.overlayBtnText}>▶  RESUME</Text>
+              <Text style={styles.overlayBtnText}>RESUME</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.overlayBtnSecondary}
@@ -628,7 +596,8 @@ function LimitedMovesScreen() {
               accessibilityRole="button"
               accessibilityLabel="Restart game"
             >
-              <Text style={styles.overlayBtnSecondaryText}>🔄  Restart</Text>
+              <Ionicons name="refresh" size={16} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+              <Text style={styles.overlayBtnSecondaryText}>Restart</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.overlayBtnSecondary, { borderColor: Colors.danger }]}
@@ -637,7 +606,8 @@ function LimitedMovesScreen() {
               accessibilityRole="button"
               accessibilityLabel="Quit game"
             >
-              <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>✖  Quit</Text>
+              <Ionicons name="close-circle" size={16} color={Colors.danger} style={{ marginRight: 8 }} />
+              <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>Quit</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -678,11 +648,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backIcon: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
   },
   topBarCenter: {
     flex: 1,
@@ -764,10 +729,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pauseIcon: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-  },
 
   // ── Next Strip ──
   nextStrip: {
@@ -847,14 +808,6 @@ const styles = StyleSheet.create({
   arrowButtonDisabled: {
     opacity: 0.3,
   },
-  arrowText: {
-    color: Colors.primary,
-    fontSize: 16,
-    opacity: 0.6,
-  },
-  arrowTextDisabled: {
-    opacity: 0.3,
-  },
 
   // ── Grid ──
   gridContainer: {
@@ -882,10 +835,6 @@ const styles = StyleSheet.create({
     padding: Spacing.xxxl,
     width: '100%',
     alignItems: 'center',
-  },
-  overlayEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.lg,
   },
   overlayTitle: {
     color: Colors.textPrimary,

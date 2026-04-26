@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function GameModeSelectionScreen() {
@@ -19,7 +20,7 @@ export default function GameModeSelectionScreen() {
       id: 'classic',
       title: 'Classic',
       subtitle: 'Play at your own pace',
-      icon: '🎯',
+      icon: 'rocket',
       color: Colors.primary,
       bgColor: Colors.primaryDim,
       screen: 'Game',
@@ -28,7 +29,7 @@ export default function GameModeSelectionScreen() {
       id: 'timeAttack',
       title: 'Time Attack',
       subtitle: 'Score as much as possible in 2 minutes',
-      icon: '⏱️',
+      icon: 'timer',
       color: Colors.accent,
       bgColor: Colors.accentDim,
       screen: 'TimeAttack',
@@ -37,7 +38,7 @@ export default function GameModeSelectionScreen() {
       id: 'limitedMoves',
       title: 'Limited Moves',
       subtitle: 'Maximize score with 25 drops',
-      icon: '🎲',
+      icon: 'dice',
       color: Colors.warning,
       bgColor: Colors.warningDim,
       screen: 'LimitedMoves',
@@ -50,7 +51,7 @@ export default function GameModeSelectionScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Select Mode</Text>
           <View style={{ width: 42 }} />
@@ -68,13 +69,13 @@ export default function GameModeSelectionScreen() {
               activeOpacity={0.7}
             >
               <View style={[styles.iconContainer, { backgroundColor: mode.bgColor }]}>
-                <Text style={styles.modeIcon}>{mode.icon}</Text>
+                <Ionicons name={mode.icon as any} size={28} color={mode.color} />
               </View>
               <View style={styles.modeContent}>
                 <Text style={[styles.modeTitle, { color: mode.color }]}>{mode.title}</Text>
                 <Text style={styles.modeSubtitle}>{mode.subtitle}</Text>
               </View>
-              <Text style={[styles.chevron, { color: mode.color }]}>›</Text>
+              <Ionicons name="chevron-forward" size={22} color={mode.color} />
             </TouchableOpacity>
           ))}
         </View>
@@ -110,11 +111,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backBtnText: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
   },
   headerTitle: {
     color: Colors.textPrimary,
@@ -162,9 +158,5 @@ const styles = StyleSheet.create({
   modeSubtitle: {
     color: Colors.textMuted,
     fontSize: 13,
-  },
-  chevron: {
-    fontSize: 28,
-    fontWeight: '300',
   },
 });

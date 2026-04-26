@@ -8,6 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { leaderboardService } from '../services/leaderboardService';
 import { LeaderboardEntry } from '../types/game';
 import { useUser } from '../contexts/UserContext';
@@ -75,10 +76,17 @@ export default function LeaderboardScreen() {
     };
 
     const getRankIcon = (rank: number) => {
-      if (rank === 1) return '🥇';
-      if (rank === 2) return '🥈';
-      if (rank === 3) return '🥉';
-      return rank.toString();
+      if (rank === 1) return 'medal';
+      if (rank === 2) return 'ribbon';
+      if (rank === 3) return 'trophy';
+      return null;
+    };
+
+    const getRankIconColor = (rank: number) => {
+      if (rank === 1) return Colors.gold;
+      if (rank === 2) return '#C0C0C0';
+      if (rank === 3) return '#CD7F32';
+      return Colors.textSecondary;
     };
 
     const rankStyle = getRankStyle(rank);
@@ -93,9 +101,11 @@ export default function LeaderboardScreen() {
         accessibilityLabel={`${isCurrentUser ? 'Your entry.' : 'Leaderboard entry.'} Rank ${rank}. ${item.username}. Score ${item.score}. Best tile ${item.bestTile}. Games played ${item.gamesPlayed}.`}
       >
         <View style={[styles.rankBadge, { backgroundColor: rankStyle.bg }]}>
-          <Text style={[styles.rankText, rank <= 3 ? styles.rankIcon : { color: rankStyle.color }]}>
-            {getRankIcon(rank)}
-          </Text>
+          {getRankIcon(rank) ? (
+            <Ionicons name={getRankIcon(rank) as any} size={22} color={getRankIconColor(rank)} />
+          ) : (
+            <Text style={{ color: rankStyle.color, fontSize: 16, fontWeight: '800' }}>{rank}</Text>
+          )}
         </View>
         <View style={styles.infoContainer}>
           <Text style={[styles.username, isCurrentUser && styles.currentUsername]}>
@@ -116,7 +126,7 @@ export default function LeaderboardScreen() {
   const HeaderComponent = () => (
     <View style={styles.headerRow}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back to home">
-        <Text style={styles.backBtnText}>←</Text>
+        <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Leaderboard</Text>
       <View style={{ width: 42 }} />
@@ -142,7 +152,7 @@ export default function LeaderboardScreen() {
       <SafeAreaView style={styles.container}>
         <HeaderComponent />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <Ionicons name="warning" size={56} color={Colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
@@ -221,11 +231,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backBtnText: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
   },
   headerTitle: {
     color: Colors.textPrimary,
@@ -329,9 +334,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  rankIcon: {
-    fontSize: 22,
-  },
   infoContainer: {
     flex: 1,
   },
@@ -361,10 +363,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xxxl,
-  },
-  errorIcon: {
-    fontSize: 56,
-    marginBottom: Spacing.lg,
   },
   errorText: {
     color: Colors.danger,

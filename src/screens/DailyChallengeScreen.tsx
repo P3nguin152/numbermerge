@@ -9,6 +9,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import Grid from '../components/Grid';
 import { GameState } from '../types/game';
 import { DailyChallenge } from '../types/dailyChallenge';
@@ -73,15 +74,16 @@ function DailyChallengeScreen() {
   const [didBeatPersonalBest, setDidBeatPersonalBest] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [moveBonus, setMoveBonus] = useState<{ value: number; x: number; y: number } | null>(null);
-  const [attemptsRemaining, setAttemptsRemaining] = useState(5);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(99);
   const [challengeCompleted, setChallengeCompleted] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [completedScore, setCompletedScore] = useState(0);
   const [completedBestTile, setCompletedBestTile] = useState(2);
   const [consecutiveMerges, setConsecutiveMerges] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(challenge?.type === 'speed_run' ? challenge.timeLimit || 0 : 0);
   const [tilesRemaining, setTilesRemaining] = useState(0);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+  const [gameStarted, setGameStarted] = useState(false);
 
   // Initialize sound manager and settings
   useEffect(() => {
@@ -112,8 +114,25 @@ function DailyChallengeScreen() {
     if (username) {
       dailyChallengeService.getUserChallengeStatus(username).then(status => {
         if (status) {
-          setAttemptsRemaining(status.attemptsRemaining);
+          setAttemptsRemaining(Math.max(0, 99 - status.attemptsUsed));
           setChallengeCompleted(status.completed);
+          // Reset game state to ensure fresh start when navigating from homescreen
+          setMovesRemaining(MAX_MOVES);
+          setGameState({
+            grid: createEmptyGrid(),
+            score: 0,
+            gameOver: false,
+            nextTile: generateNextValue(),
+          });
+          setMerges(0);
+          setBestTile(2);
+          setConsecutiveMerges(0);
+          setTilesRemaining(0);
+          setGameStarted(false);
+          // Reset timeRemaining for speed run challenges
+          if (challenge.type === 'speed_run' && challenge.timeLimit) {
+            setTimeRemaining(challenge.timeLimit);
+          }
           // If challenge is already completed, show completion overlay with stats
           if (status.completed) {
             setAlreadyCompleted(true);
@@ -141,7 +160,14 @@ function DailyChallengeScreen() {
 
   // Timer effect for speed run challenges
   useEffect(() => {
-    if (challenge.type === 'speed_run' && challenge.timeLimit && !gameState.gameOver && !isPaused && timeRemaining > 0) {
+    // Clear any existing timer first
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+
+    // Only start timer when game has started (user made first move)
+    if (gameStarted && challenge.type === 'speed_run' && challenge.timeLimit && !gameState.gameOver && !isPaused && timeRemaining > 0) {
       const interval = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
@@ -155,7 +181,14 @@ function DailyChallengeScreen() {
       setTimerInterval(interval);
       return () => clearInterval(interval);
     }
-  }, [challenge.type, challenge.timeLimit, gameState.gameOver, isPaused, timeRemaining]);
+  }, [challenge.type, challenge.timeLimit, gameState.gameOver, isPaused, timeRemaining, gameStarted]);
+
+  // Initialize timeRemaining when challenge changes
+  useEffect(() => {
+    if (challenge?.type === 'speed_run' && challenge.timeLimit) {
+      setTimeRemaining(challenge.timeLimit);
+    }
+  }, [challenge]);
 
   // Animation values
   const scoreScale = useSharedValue(1);
@@ -238,6 +271,12 @@ function DailyChallengeScreen() {
 
   const handleColumnPress = useCallback((col: number) => {
     if (gameState.gameOver || isPaused || movesRemaining <= 0 || attemptsRemaining <= 0) return;
+
+    // Start the game (and timer for speed run) on first move
+    if (!gameStarted) {
+      console.log('Starting game, timeRemaining:', timeRemaining, 'challenge:', challenge);
+      setGameStarted(true);
+    }
 
     // Animate arrow press
     arrowScales[col].value = withSequence(
@@ -342,10 +381,12 @@ function DailyChallengeScreen() {
     }
 
     // Game over conditions
-    const isTimeAttackGameOver = challenge.type === 'speed_run' && timeRemaining <= 0;
+    const isTimeAttackGameOver = gameStarted && challenge.type === 'speed_run' && timeRemaining <= 0;
     const isLimitedMovesGameOver = challenge.mode === 'limitedMoves' && movesRemaining <= 1;
     
     if (gameOver || isLimitedMovesGameOver || isTimeAttackGameOver || completed) {
+      // Reset game started flag
+      setGameStarted(false);
       // Decrement attempts when game ends
       setAttemptsRemaining(prev => prev - 1);
       
@@ -416,6 +457,7 @@ function DailyChallengeScreen() {
     setMovesRemaining(MAX_MOVES);
     setConsecutiveMerges(0);
     setTilesRemaining(0);
+    setGameStarted(false);
     if (challenge.type === 'speed_run' && challenge.timeLimit) {
       setTimeRemaining(challenge.timeLimit);
     }
@@ -582,7 +624,7 @@ function DailyChallengeScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back to home"
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
@@ -612,7 +654,9 @@ function DailyChallengeScreen() {
           accessibilityRole="button"
           accessibilityLabel={isPaused ? 'Resume game' : 'Pause game'}
         >
-          <Animated.Text style={[styles.pauseIcon, pauseButtonAnimatedStyle]}>⏸</Animated.Text>
+          <Animated.View style={pauseButtonAnimatedStyle}>
+            <Ionicons name={isPaused ? 'play' : 'pause'} size={20} color={Colors.textPrimary} />
+          </Animated.View>
         </TouchableOpacity>
       </View>
 
@@ -637,13 +681,14 @@ function DailyChallengeScreen() {
         </Animated.View>
         <View style={styles.attemptsChip}>
           <Text style={styles.attemptsLabel}>ATTEMPTS</Text>
-          <Text style={styles.attemptsValue}>{attemptsRemaining}/5</Text>
+          <Text style={styles.attemptsValue}>{attemptsRemaining}/99</Text>
         </View>
       </View>
 
       {showNewBest && (
         <View style={styles.newBestBanner}>
-          <Text style={styles.newBestText}>Challenge Complete! 🎉</Text>
+          <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+          <Text style={styles.newBestText}> Challenge Complete!</Text>
         </View>
       )}
 
@@ -663,7 +708,9 @@ function DailyChallengeScreen() {
               accessibilityLabel={`Drop tile in column ${i + 1}`}
               disabled={movesRemaining <= 0 || attemptsRemaining <= 0}
             >
-              <Animated.Text style={[styles.arrowText, movesRemaining <= 0 && styles.arrowTextDisabled, arrowAnimatedStyle]}>▼</Animated.Text>
+              <Animated.View style={[arrowAnimatedStyle]}>
+                <Ionicons name="chevron-down" size={16} color={Colors.primary} style={{ opacity: 0.6 }} />
+              </Animated.View>
             </TouchableOpacity>
           );
         })}
@@ -681,9 +728,11 @@ function DailyChallengeScreen() {
       {gameState.gameOver && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
           <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>
-              {alreadyCompleted ? '✅' : challengeCompleted ? '🎉' : '💥'}
-            </Text>
+            <Ionicons 
+              name={alreadyCompleted ? 'checkmark-circle' : challengeCompleted ? 'trophy' : 'skull'} 
+              size={48} 
+              color={alreadyCompleted ? Colors.success : challengeCompleted ? Colors.gold : Colors.danger} 
+            />
             <Text style={styles.overlayTitle}>
               {alreadyCompleted ? 'Already Completed Today' : 
                challengeCompleted ? 'Challenge Complete!' : 
@@ -729,7 +778,7 @@ function DailyChallengeScreen() {
                 disabled={isWatchingAd}
               >
                 <Text style={styles.overlayBtnRewardedText}>
-                  {isWatchingAd ? 'LOADING...' : '🎬 WATCH AD TO HAVE AN EXTRA ATTEMPT'}
+                  {isWatchingAd ? 'LOADING...' : 'WATCH AD FOR EXTRA ATTEMPT'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -748,28 +797,30 @@ function DailyChallengeScreen() {
       {isPaused && (
         <Animated.View style={[styles.overlay, overlayAnimatedStyle]} accessibilityViewIsModal>
           <Animated.View style={[styles.overlayCard, overlayCardAnimatedStyle]}>
-            <Text style={styles.overlayEmoji}>⏸</Text>
+            <Ionicons name="pause-circle" size={48} color={Colors.textPrimary} />
             <Text style={styles.overlayTitle}>Paused</Text>
             <TouchableOpacity
               style={styles.overlayBtn}
               onPress={handleResume}
               activeOpacity={0.85}
             >
-              <Text style={styles.overlayBtnText}>▶  RESUME</Text>
+              <Text style={styles.overlayBtnText}>RESUME</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.overlayBtnSecondary}
               onPress={handleRestart}
               activeOpacity={0.7}
             >
-              <Text style={styles.overlayBtnSecondaryText}>🔄  Restart</Text>
+              <Ionicons name="refresh" size={16} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+              <Text style={styles.overlayBtnSecondaryText}>Restart</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.overlayBtnSecondary, { borderColor: Colors.danger }]}
               onPress={handleQuit}
               activeOpacity={0.7}
             >
-              <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>✖  Quit</Text>
+              <Ionicons name="close-circle" size={16} color={Colors.danger} style={{ marginRight: 8 }} />
+              <Text style={[styles.overlayBtnSecondaryText, { color: Colors.danger }]}>Quit</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -802,11 +853,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backIcon: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
   },
   topBarCenter: {
     flex: 1,
@@ -867,10 +913,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pauseIcon: {
-    color: Colors.textPrimary,
-    fontSize: 20,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -973,14 +1015,6 @@ const styles = StyleSheet.create({
   arrowButtonDisabled: {
     opacity: 0.3,
   },
-  arrowText: {
-    color: Colors.primary,
-    fontSize: 16,
-    opacity: 0.6,
-  },
-  arrowTextDisabled: {
-    opacity: 0.3,
-  },
   gridContainer: {
     flex: 1,
     paddingHorizontal: Spacing.sm,
@@ -1004,10 +1038,6 @@ const styles = StyleSheet.create({
     padding: Spacing.xxxl,
     width: '100%',
     alignItems: 'center',
-  },
-  overlayEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.lg,
   },
   overlayTitle: {
     color: Colors.textPrimary,

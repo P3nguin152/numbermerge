@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { DailyChallenge, UserChallengeStatus } from '../types/dailyChallenge';
 import { dailyChallengeService } from '../services/dailyChallengeService';
 import { useUser } from '../contexts/UserContext';
@@ -87,11 +88,16 @@ export default function DailyChallengeCard() {
     : challenge.type === 'clear_board'
     ? 'Clear all tiles from the grid'
     : `Reach ${challenge.targetValue.toLocaleString()} points in ${challenge.timeLimit}s`;
-  const challengeEmoji = challenge.type === 'target_score' ? '🎯' :
-                        challenge.type === 'tile_mastery' ? '🧩' :
-                        challenge.type === 'combo' ? '🔥' :
-                        challenge.type === 'clear_board' ? '🧹' :
-                        '⏱️';
+  const challengeIconName = challenge.type === 'target_score' ? 'ribbon' :
+                          challenge.type === 'tile_mastery' ? 'extension-puzzle' :
+                          challenge.type === 'combo' ? 'flame' :
+                          challenge.type === 'clear_board' ? 'trash' :
+                          'timer';
+  const challengeIconColor = challenge.type === 'target_score' ? Colors.accent :
+                             challenge.type === 'tile_mastery' ? Colors.info :
+                             challenge.type === 'combo' ? Colors.gold :
+                             challenge.type === 'clear_board' ? Colors.success :
+                             Colors.warning;
   const modeLabel = challengeTitle;
 
   return (
@@ -104,8 +110,8 @@ export default function DailyChallengeCard() {
         accessibilityLabel={`Daily Challenge: ${challengeTitle}. ${challengeSubtitle}`}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>{challengeEmoji}</Text>
+          <View style={[styles.iconContainer, { backgroundColor: Colors.goldDim }]}>
+            <Ionicons name={challengeIconName as any} size={28} color={challengeIconColor} />
           </View>
           <View style={styles.headerText}>
             <Text style={styles.title}>Daily Challenge</Text>
@@ -113,7 +119,7 @@ export default function DailyChallengeCard() {
           </View>
           {status?.completed && (
             <View style={styles.completedBadge}>
-              <Text style={styles.completedText}>✓</Text>
+              <Ionicons name="checkmark" size={18} color="#fff" />
             </View>
           )}
         </View>
@@ -126,14 +132,17 @@ export default function DailyChallengeCard() {
           <View style={styles.footerDivider} />
           <View style={styles.footerItem}>
             <Text style={styles.footerLabel}>Attempts</Text>
-            <Text style={styles.footerValue}>{status?.attemptsRemaining ?? 5}/5</Text>
+            <Text style={styles.footerValue}>{status?.attemptsRemaining ?? 99}/99</Text>
           </View>
           {status && status.streak > 0 && (
             <>
               <View style={styles.footerDivider} />
               <View style={styles.footerItem}>
                 <Text style={styles.footerLabel}>Streak</Text>
-                <Text style={[styles.footerValue, styles.streakValue]}>🔥 {status.streak}</Text>
+                <View style={styles.streakRow}>
+                  <Ionicons name="flame" size={14} color={Colors.gold} />
+                  <Text style={[styles.footerValue, styles.streakValue]}> {status.streak}</Text>
+                </View>
               </View>
             </>
           )}
@@ -170,6 +179,10 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 28,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerText: {
     flex: 1,

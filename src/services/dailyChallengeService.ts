@@ -24,7 +24,7 @@ export const dailyChallengeService = {
         type: existingChallenge.challenge_type,
         targetValue: existingChallenge.target_value,
         mode: existingChallenge.mode,
-        attemptsRemaining: 5,
+        attemptsRemaining: 99,
         completed: false,
         streak: 0,
       };
@@ -139,7 +139,7 @@ export const dailyChallengeService = {
     return {
       completed: data.completed,
       attemptsUsed: data.attempts_used,
-      attemptsRemaining: Math.max(0, 5 - data.attempts_used),
+      attemptsRemaining: Math.max(0, 99 - data.attempts_used),
       bestScore: data.score,
       bestTile: data.best_tile,
       streak: data.streak_count,

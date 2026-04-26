@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ImageBackground } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { loadStats } from '../utils/statsStorage';
+import { getLastShownVersion, setLastShownVersion, clearLastShownVersion } from '../utils/versionStorage';
 import UsernameModal from '../components/UsernameModal';
+import UpdateModal from '../components/UpdateModal';
 import DailyChallengeCard from '../components/DailyChallengeCard';
 import { useUser } from '../contexts/UserContext';
 import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { username, avatar, isLoading: userLoading } = useUser();
+  const { username, avatar, isLoading: userLoading, setUsername } = useUser();
   const [stats, setStats] = useState({
     highScore: 0,
     gamesPlayed: 0,
   });
   const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  const generateDefaultUsername = (): string => {
+    const randomNum = Math.floor(Math.random() * 90000) + 10000;
+    return `user${randomNum}`;
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -33,158 +43,225 @@ export default function HomeScreen() {
     }
   }, [username, userLoading]);
 
+  useEffect(() => {
+    checkForUpdate();
+  }, []);
+
+  const checkForUpdate = async () => {
+    try {
+      const currentVersion = Constants.expoConfig?.version || '1.0.0';
+      const lastShownVersion = await getLastShownVersion();
+      
+      if (lastShownVersion !== currentVersion) {
+        setShowUpdateModal(true);
+        await setLastShownVersion(currentVersion);
+      }
+    } catch (error) {
+      console.error('Error checking for update:', error);
+    }
+  };
+
+  // Test function to manually show update modal - call this to test
+  const testUpdateModal = async () => {
+    try {
+      await clearLastShownVersion();
+      setShowUpdateModal(true);
+      console.log('Update modal test triggered');
+    } catch (error) {
+      console.error('Error testing update modal:', error);
+    }
+  };
+
+  const handleModalClose = async () => {
+    setShowUsernameModal(false);
+    // Auto-generate username if user cancels
+    if (!username) {
+      const defaultUsername = generateDefaultUsername();
+      await setUsername(defaultUsername);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <>
+      <ImageBackground source={require('../../assets/homepage-background.png')} style={styles.container} imageStyle={styles.backgroundImage}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.appName}>NumberMerge</Text>
-            <Text style={styles.welcomeText}>
-              {username ? `Hey, ${username} 👋` : 'Welcome back 👋'}
-            </Text>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity onLongPress={testUpdateModal} delayLongPress={1000}>
+                <Text style={styles.appName}>NumberMerge</Text>
+              </TouchableOpacity>
+              <Text style={styles.welcomeText}>
+                {username ? `Hey, ${username} 👋` : 'Welcome back 👋'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.profileButton}
+              onPress={() => navigation.navigate('Profile' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.profileRing}>
+                <Text style={styles.profileIcon}>{avatar}</Text>
+              </View>
+            </TouchableOpacity>
           </View>
+
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statPill}>
+              <View style={[styles.statPillIconWrap, { backgroundColor: Colors.goldDim }]}>
+                <Ionicons name="trophy" size={20} color={Colors.gold} />
+              </View>
+              <View>
+                <Text style={styles.statPillValue}>{stats.highScore.toLocaleString()}</Text>
+                <Text style={styles.statPillLabel}>Best Score</Text>
+              </View>
+            </View>
+            <View style={styles.statPill}>
+              <View style={[styles.statPillIconWrap, { backgroundColor: Colors.accentDim }]}>
+                <Ionicons name="game-controller" size={20} color={Colors.accent} />
+              </View>
+              <View>
+                <Text style={[styles.statPillValue, { color: Colors.accent }]}>{stats.gamesPlayed}</Text>
+                <Text style={styles.statPillLabel}>Games Played</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Leaderboard Banner */}
           <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => navigation.navigate('Profile' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.profileRing}>
-              <Text style={styles.profileIcon}>{avatar}</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <Text style={styles.statPillEmoji}>👑</Text>
-            <View>
-              <Text style={styles.statPillValue}>{stats.highScore.toLocaleString()}</Text>
-              <Text style={styles.statPillLabel}>Best Score</Text>
-            </View>
-          </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statPillEmoji}>🎮</Text>
-            <View>
-              <Text style={[styles.statPillValue, { color: Colors.accent }]}>{stats.gamesPlayed}</Text>
-              <Text style={styles.statPillLabel}>Games Played</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Leaderboard Banner */}
-        <TouchableOpacity
-          style={styles.leaderboardBanner}
-          onPress={() => navigation.navigate('Leaderboard' as never)}
-          activeOpacity={0.85}
-        >
-          <View style={styles.leaderboardLeft}>
-            <Text style={styles.leaderboardEmoji}>🏆</Text>
-            <View>
-              <Text style={styles.leaderboardTitle}>Leaderboard</Text>
-              <Text style={styles.leaderboardSub}>See how you rank globally</Text>
-            </View>
-          </View>
-          <Text style={styles.leaderboardChevron}>›</Text>
-        </TouchableOpacity>
-
-        {/* Game Modes */}
-        <Text style={styles.sectionTitle}>CHOOSE YOUR MODE</Text>
-
-        <TouchableOpacity
-          style={styles.gameModeCardFeatured}
-          onPress={() => navigation.navigate('Game' as never)}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.gameModeAccent, { backgroundColor: Colors.primary }]} />
-          <View style={styles.gameModeIconBox}>
-            <Text style={styles.gameModeIcon}>🎯</Text>
-          </View>
-          <View style={styles.gameModeContent}>
-            <View style={styles.gameModeTitleRow}>
-              <Text style={styles.gameModeTitle}>Classic</Text>
-              <View style={styles.gameModeBadge}><Text style={styles.gameModeBadgeText}>POPULAR</Text></View>
-            </View>
-            <Text style={styles.gameModeSubtitle}>Endless gameplay · No limits · High score chase</Text>
-          </View>
-          <Text style={styles.gameModeChevron}>›</Text>
-        </TouchableOpacity>
-
-        <View style={styles.gameModeRow}>
-          <TouchableOpacity
-            style={styles.gameModeCardHalf}
-            onPress={() => navigation.navigate('LimitedMoves' as never)}
+            style={styles.leaderboardBanner}
+            onPress={() => navigation.navigate('Leaderboard' as never)}
             activeOpacity={0.85}
           >
-            <View style={[styles.gameModeAccentHalf, { backgroundColor: Colors.accent }]} />
-            <Text style={styles.gameModeIconLarge}>⚡</Text>
-            <Text style={styles.gameModeTitleHalf}>Limited{'\n'}Moves</Text>
-            <Text style={styles.gameModeSubtitleHalf}>25 moves to score big</Text>
+            <View style={styles.leaderboardLeft}>
+              <View style={styles.leaderboardIconWrap}>
+                <Ionicons name="podium" size={24} color={Colors.gold} />
+              </View>
+              <View>
+                <Text style={styles.leaderboardTitle}>Leaderboard</Text>
+                <Text style={styles.leaderboardSub}>See how you rank globally</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={Colors.gold} />
           </TouchableOpacity>
 
+          {/* Game Modes */}
+          <Text style={styles.sectionTitle}>CHOOSE YOUR MODE</Text>
+
           <TouchableOpacity
-            style={styles.gameModeCardHalf}
-            onPress={() => navigation.navigate('TimeAttack' as never)}
+            style={styles.gameModeCardFeatured}
+            onPress={() => navigation.navigate('Game' as never)}
             activeOpacity={0.85}
           >
-            <View style={[styles.gameModeAccentHalf, { backgroundColor: Colors.gold }]} />
-            <Text style={styles.gameModeIconLarge}>⏱️</Text>
-            <Text style={styles.gameModeTitleHalf}>Time{'\n'}Attack</Text>
-            <Text style={styles.gameModeSubtitleHalf}>Race against 2 minutes</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Daily Challenge */}
-        <Text style={styles.sectionTitle}>DAILY CHALLENGE</Text>
-        <DailyChallengeCard />
-
-        {/* Quick Links */}
-        <Text style={styles.sectionTitle}>MORE</Text>
-        <View style={styles.quickLinks}>
-          <TouchableOpacity
-            style={styles.quickLinkItem}
-            onPress={() => navigation.navigate('HowToPlay' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickLinkIcon, { backgroundColor: Colors.primaryDim }]}>
-              <Text style={styles.quickLinkEmoji}>📖</Text>
+            <View style={[styles.gameModeAccent, { backgroundColor: Colors.primary }]} />
+            <View style={styles.gameModeIconBox}>
+              <Ionicons name="rocket" size={26} color={Colors.primary} />
             </View>
-            <Text style={styles.quickLinkLabel}>How to Play</Text>
-            <Text style={styles.quickLinkChevron}>›</Text>
-          </TouchableOpacity>
-
-          <View style={styles.quickLinkDivider} />
-
-          <TouchableOpacity
-            style={styles.quickLinkItem}
-            onPress={() => navigation.navigate('Settings' as never)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickLinkIcon, { backgroundColor: Colors.accentDim }]}>
-              <Text style={styles.quickLinkEmoji}>⚙️</Text>
+            <View style={styles.gameModeContent}>
+              <View style={styles.gameModeTitleRow}>
+                <Text style={styles.gameModeTitle}>Classic</Text>
+                <View style={styles.gameModeBadge}><Text style={styles.gameModeBadgeText}>POPULAR</Text></View>
+              </View>
+              <Text style={styles.gameModeSubtitle}>Endless gameplay · No limits · High score chase</Text>
             </View>
-            <Text style={styles.quickLinkLabel}>Settings</Text>
-            <Text style={styles.quickLinkChevron}>›</Text>
+            <Ionicons name="chevron-forward" size={22} color={Colors.textMuted} style={{ marginLeft: Spacing.sm }} />
           </TouchableOpacity>
-        </View>
 
-        <View style={{ height: 48 }} />
-      </ScrollView>
+          <View style={styles.gameModeRow}>
+            <TouchableOpacity
+              style={styles.gameModeCardHalf}
+              onPress={() => navigation.navigate('LimitedMoves' as never)}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.gameModeAccentHalf, { backgroundColor: Colors.accent }]} />
+              <View style={styles.gameModeIconLargeWrap}>
+                <Ionicons name="flash" size={28} color={Colors.accent} />
+              </View>
+              <Text style={styles.gameModeTitleHalf}>Limited{'\n'}Moves</Text>
+              <Text style={styles.gameModeSubtitleHalf}>25 moves to score big</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gameModeCardHalf}
+              onPress={() => navigation.navigate('TimeAttack' as never)}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.gameModeAccentHalf, { backgroundColor: Colors.gold }]} />
+              <View style={styles.gameModeIconLargeWrap}>
+                <Ionicons name="timer" size={28} color={Colors.gold} />
+              </View>
+              <Text style={styles.gameModeTitleHalf}>Time{'\n'}Attack</Text>
+              <Text style={styles.gameModeSubtitleHalf}>Race against 2 minutes</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Daily Challenge */}
+          <Text style={styles.sectionTitle}>DAILY CHALLENGE</Text>
+          <DailyChallengeCard />
+
+          {/* Quick Links */}
+          <Text style={styles.sectionTitle}>MORE</Text>
+          <View style={styles.quickLinks}>
+            <TouchableOpacity
+              style={styles.quickLinkItem}
+              onPress={() => navigation.navigate('HowToPlay' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickLinkIcon, { backgroundColor: Colors.primaryDim }]}>
+                <Ionicons name="book" size={20} color={Colors.primary} />
+              </View>
+              <Text style={styles.quickLinkLabel}>How to Play</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <View style={styles.quickLinkDivider} />
+
+            <TouchableOpacity
+              style={styles.quickLinkItem}
+              onPress={() => navigation.navigate('Settings' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickLinkIcon, { backgroundColor: Colors.accentDim }]}>
+                <Ionicons name="settings" size={20} color={Colors.accent} />
+              </View>
+              <Text style={styles.quickLinkLabel}>Settings</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 48 }} />
+        </ScrollView>
+      </ImageBackground>
 
       <UsernameModal
         visible={showUsernameModal}
-        onClose={() => setShowUsernameModal(false)}
+        onClose={handleModalClose}
       />
-    </View>
+
+      <UpdateModal
+        visible={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        version={Constants.expoConfig?.version || '1.0.0'}
+        packageName={Constants.expoConfig?.android?.package}
+        updateNotes={[
+          'New game modes: Time Attack and Limited Moves',
+          'Daily challenges with global leaderboards',
+          'Power-ups to help you merge faster',
+          'Improved performance and bug fixes',
+        ]}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
+  },
+  backgroundImage: {
+    resizeMode: 'cover',
   },
   scrollView: {
     flex: 1,
@@ -262,6 +339,13 @@ const styles = StyleSheet.create({
   statPillEmoji: {
     fontSize: 22,
   },
+  statPillIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statPillValue: {
     color: Colors.primary,
     fontSize: 20,
@@ -294,6 +378,14 @@ const styles = StyleSheet.create({
   },
   leaderboardEmoji: {
     fontSize: 28,
+  },
+  leaderboardIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,215,0,0.12)',
   },
   leaderboardTitle: {
     color: Colors.gold,
@@ -416,6 +508,15 @@ const styles = StyleSheet.create({
   gameModeIconLarge: {
     fontSize: 30,
     marginBottom: 8,
+  },
+  gameModeIconLargeWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginBottom: 10,
   },
   gameModeTitleHalf: {
     color: Colors.textPrimary,

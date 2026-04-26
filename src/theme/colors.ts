@@ -106,6 +106,8 @@ export const TileColors: Record<number, { bg: string; text: string; glow: string
   512:  { bg: '#FBBF24', text: '#fff', glow: 'rgba(251,191,36,0.35)' },
   1024: { bg: '#2DD4BF', text: '#fff', glow: 'rgba(45,212,191,0.35)' },
   2048: { bg: '#EC4899', text: '#fff', glow: 'rgba(236,72,153,0.35)' },
+  4096: { bg: '#FF00FF', text: '#fff', glow: 'rgba(255,0,255,0.5)' },
+  8192: { bg: '#FFD700', text: '#000', glow: 'rgba(255,215,0,0.6)' },
 };
 
 export const Radius = {

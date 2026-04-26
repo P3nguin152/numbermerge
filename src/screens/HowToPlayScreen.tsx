@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius, Spacing } from '../theme/colors';
 
 export default function HowToPlayScreen() {
@@ -12,7 +13,7 @@ export default function HowToPlayScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>How to Play</Text>
           <View style={{ width: 42 }} />
@@ -22,7 +23,7 @@ export default function HowToPlayScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconBox, { backgroundColor: Colors.accentDim }]}>
-              <Text style={styles.iconText}>🎯</Text>
+              <Ionicons name="ribbon" size={22} color={Colors.accent} />
             </View>
             <Text style={styles.cardTitle}>Objective</Text>
           </View>
@@ -35,7 +36,7 @@ export default function HowToPlayScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconBox, { backgroundColor: Colors.primaryDim }]}>
-              <Text style={styles.iconText}>👇</Text>
+              <Ionicons name="arrow-down" size={22} color={Colors.primary} />
             </View>
             <Text style={styles.cardTitle}>How to Drop Tiles</Text>
           </View>
@@ -48,7 +49,7 @@ export default function HowToPlayScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconBox, { backgroundColor: Colors.successDim }]}>
-              <Text style={styles.iconText}>🔗</Text>
+              <Ionicons name="link" size={22} color={Colors.success} />
             </View>
             <Text style={styles.cardTitle}>Merging Tiles</Text>
           </View>
@@ -74,7 +75,7 @@ export default function HowToPlayScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconBox, { backgroundColor: Colors.dangerDim }]}>
-              <Text style={styles.iconText}>💀</Text>
+              <Ionicons name="skull" size={22} color={Colors.danger} />
             </View>
             <Text style={styles.cardTitle}>Game Over</Text>
           </View>
@@ -87,7 +88,7 @@ export default function HowToPlayScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconBox, { backgroundColor: Colors.warningDim }]}>
-              <Text style={styles.iconText}>⚡</Text>
+              <Ionicons name="flash" size={22} color={Colors.warning} />
             </View>
             <Text style={styles.cardTitle}>Power-ups</Text>
           </View>
@@ -96,15 +97,15 @@ export default function HowToPlayScreen() {
           </Text>
           <View style={styles.powerUpList}>
             <View style={styles.powerUpItem}>
-              <Text style={styles.powerUpIcon}>🔨</Text>
+              <Ionicons name="hammer" size={20} color={Colors.warning} />
               <Text style={styles.powerUpText}>Hammer - Destroy any tile</Text>
             </View>
             <View style={styles.powerUpItem}>
-              <Text style={styles.powerUpIcon}>🔄</Text>
+              <Ionicons name="refresh" size={20} color={Colors.info} />
               <Text style={styles.powerUpText}>Shuffle - Randomize the grid</Text>
             </View>
             <View style={styles.powerUpItem}>
-              <Text style={styles.powerUpIcon}>↩️</Text>
+              <Ionicons name="arrow-undo" size={20} color={Colors.accent} />
               <Text style={styles.powerUpText}>Undo - Reverse your last move</Text>
             </View>
           </View>
@@ -115,7 +116,7 @@ export default function HowToPlayScreen() {
           <View style={styles.tipsGlow} />
           <View style={styles.cardHeader}>
             <View style={[styles.iconBox, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-              <Text style={styles.iconText}>💡</Text>
+              <Ionicons name="bulb" size={22} color="#fff" />
             </View>
             <Text style={styles.cardTitle}>Pro Tips</Text>
           </View>
@@ -170,11 +171,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backBtnText: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
   },
   headerTitle: {
     color: Colors.textPrimary,

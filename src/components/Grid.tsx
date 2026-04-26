@@ -102,7 +102,7 @@ function Grid({ grid, onColumnPress }: GridProps) {
                     <TouchableOpacity
                       style={styles.cell}
                       onPress={() => onColumnPress(colIndex)}
-                      activeOpacity={0.7}
+                      activeOpacity={1}
                       accessibilityRole="button"
                       accessibilityLabel={`Row ${rowIndex + 1} column ${colIndex + 1}. Tile ${tile.value}. Drop next tile in this column.`}
                     >

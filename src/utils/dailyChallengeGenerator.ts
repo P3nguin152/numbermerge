@@ -42,6 +42,23 @@ function calculateTargetScore(dateString: string): number {
 }
 
 /**
+ * Calculate a lower target score for speed run challenges
+ * Speed runs have time pressure, so targets should be more achievable
+ */
+function calculateSpeedRunTargetScore(dateString: string): number {
+  const random = seededRandom(dateString + 'speedscore');
+  
+  // Lower base scores for speed run (1000-5000 range)
+  const baseScores = [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000];
+  
+  // Add some variation based on the date
+  const variation = Math.floor(random * 200);
+  const baseIndex = Math.floor(random * baseScores.length);
+  
+  return baseScores[baseIndex] + variation;
+}
+
+/**
  * Get a random tile mastery target value
  */
 function getTileMasteryTarget(dateString: string): number {
@@ -109,7 +126,7 @@ export function generateDailyChallenge(date: Date): DailyChallenge {
     targetValue = 0; // Not used for clear board
     mode = 'limitedMoves';
   } else if (type === 'speed_run') {
-    targetValue = calculateTargetScore(dateString);
+    targetValue = calculateSpeedRunTargetScore(dateString);
     timeLimit = SPEED_RUN_TIME_LIMITS[Math.floor(seededRandom(dateString + 'time') * SPEED_RUN_TIME_LIMITS.length)];
     mode = 'timeAttack';
   } else {
@@ -123,7 +140,7 @@ export function generateDailyChallenge(date: Date): DailyChallenge {
     type,
     targetValue,
     mode,
-    attemptsRemaining: 5,
+    attemptsRemaining: 99,
     completed: false,
     streak: 0,
     comboTarget,
